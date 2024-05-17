@@ -8,10 +8,20 @@ class BackgroundGraphEntities extends HTMLElement {
   constructor() {
     super();
     this.attachShadow({ mode: "open" });
+
+    // Get the URL of the current script
+    const currentScript = document.currentScript || Array.from(document.getElementsByTagName('script')).pop();
+    const scriptUrl = new URL(currentScript.src);
+
+    // Construct the path to the CSS file
+    const cssPath = new URL('background-graph-entities.css', scriptUrl);
+
+    // Set the shadow DOM content with the dynamic CSS path
     this.shadowRoot.innerHTML = `
-        <link rel="stylesheet" href="background-graph-entities.css">
+        <link rel="stylesheet" href="${cssPath}">
         <ha-card id="card-content" class="card-content"></ha-card>
       `;
+
     this._hass = null;
   }
 
