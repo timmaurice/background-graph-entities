@@ -1,5 +1,5 @@
 console.log(
-  `%cbackground-graph-entities\n%cVersion: ${"0.0.3"}`,
+  `%cbackground-graph-entities\n%cVersion: ${"0.0.1"}`,
   "color: #fff; background-color: #191970; font-weight: bold;",
   ""
 );
@@ -40,7 +40,6 @@ class BackgroundGraphEntities extends HTMLElement {
                         --card-background-color: none;
                         --ha-card-border-radius: 0;
                         --ha-card-border-width: 0;
-                        opacity: 0.2;
                         position: absolute;
                         top: 0;
                         left: 0;
@@ -108,27 +107,27 @@ class BackgroundGraphEntities extends HTMLElement {
     const miniGraphCard = document.createElement("mini-graph-card");
     miniGraphCard.setConfig({
       entities: [{ entity: entity }],
-      hours_to_show: this.config.hoursToShow || 24,
       group: true,
-      points_per_hour: 1,
-      line_color: "rgba(255, 255, 255, 0.8)",
-      hour24: true,
-      line_width: 5,
       height: 35,
-      update_interval: 600,
+      hour24: true,
+      hours_to_show: this.config.hoursToShow || 24,
+      line_color: this.config.line_color || "rgba(255, 255, 255, 0.2)",
+      line_width: this.config.line_width || 5,
+      points_per_hour: this.config.points_per_hour || 1,
+      update_interval: this.config.update_interval || 600,
       show: {
-        name: false,
-        icon: false,
-        state: false,
-        points: false,
-        legend: false,
         average: false,
         extrema: false,
-        labels: false,
         fill: false,
-        labels_secondary: false,
-        name_adaptive_color: false,
+        icon: false,
         icon_adaptive_color: false,
+        labels: false,
+        labels_secondary: false,
+        legend: false,
+        name: false,
+        name_adaptive_color: false,
+        points: false,
+        state: false,
       },
     });
 
@@ -164,7 +163,8 @@ class BackgroundGraphEntities extends HTMLElement {
           `.entity-row[data-entity="${entity.entity}"] .entity-value`
         );
         if (entityValue) {
-          entityValue.textContent = stateObj.state;
+          // Display state value along with unit of measurement
+          entityValue.textContent = `${stateObj.state} ${stateObj.attributes.unit_of_measurement || ''}`;
         }
       }
     });

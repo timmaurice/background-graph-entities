@@ -44,6 +44,10 @@ entities:
   - **name** (optional): The display name of the entity.
   - **icon** (optional): The icon for the entity. Defaults to `mdi:alert` if not specified.
 - **hoursToShow** (optional): Number of hours to show in the mini graph. Defaults to 24.
+- **line_color** (optional): Color of the line in the mini graph. Default is "rgba(255, 255, 255, 0.2)".
+- **line_width** (optional): Width of the line in the mini graph in pixels. Default is 5.
+- **points_per_hour** (optional): Points per hour in the mini graph. Default is 1.
+- **update_interval** (optional): Interval of updates in the mini graph. Default is 600.
 
 ### Example
 
@@ -56,7 +60,11 @@ entities:
   - entity: sensor.temperaturesensor_average_inside
     name: Temperature Average Inside
     icon: mdi:home-thermometer
-hoursToShow: 12
+hoursToShow: 24
+line_color: "rgba(255, 255, 255, 0.2)"
+line_width: 5
+points_per_hour: 1
+update_interval: 600
 ```
 
 ## Development
