@@ -1,0 +1,11 @@
+{
+    "name": "Background Graph Entities",
+    "content_in_root": true,
+    "filename": "my-home-assistant-component.js",
+    "domains": [
+        "lovelace"
+    ],
+    "codeowners": [
+        "@timmaurice"
+    ]
+}
