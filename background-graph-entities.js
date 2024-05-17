@@ -9,7 +9,6 @@ class BackgroundGraphEntities extends HTMLElement {
     super();
     this.attachShadow({ mode: "open" });
     this.shadowRoot.innerHTML = `<ha-card id="card-content" class="card-content"></ha-card>`;
-    this.attachShadow({ mode: 'open' });
     const linkElem = document.createElement('link');
     linkElem.setAttribute('rel', 'stylesheet');
     linkElem.setAttribute('href', `${import.meta.url.replace('.js', '.css')}`);
