@@ -8,11 +8,48 @@ class BackgroundGraphEntities extends HTMLElement {
   constructor() {
     super();
     this.attachShadow({ mode: "open" });
-    this.shadowRoot.innerHTML = `<ha-card id="card-content" class="card-content"></ha-card>`;
-    const linkElem = document.createElement('link');
-    linkElem.setAttribute('rel', 'stylesheet');
-    linkElem.setAttribute('href', `${import.meta.url.replace('.js', '.css')}`);
-    this.shadowRoot.appendChild(linkElem);
+    this.shadowRoot.innerHTML = `
+                <style>
+                    .card-content {
+                        padding: 16px;
+                    }
+
+                    .entity-row {
+                        display: flex;
+                        position: relative;
+                        margin-bottom: 8px;
+                    }
+
+                    .entity-icon {
+                        fill: white;
+                        width: 24px;
+                        height: 24px;
+                        margin-right: 8px; /* Adjust as needed */
+                    }
+
+                    .entity-name {
+                        font-weight: bold;
+                    }
+
+                    .entity-value {
+                        color: var(--primary-text-color);
+                        margin-left: auto;
+                    }
+
+                    .mini-graph-container {
+                        --card-background-color: none;
+                        --ha-card-border-radius: 0;
+                        --ha-card-border-width: 0;
+                        opacity: 0.2;
+                        position: absolute;
+                        top: 0;
+                        left: 0;
+                        right: 0;
+                        bottom: 0;
+                        pointer-events: none;
+                    }
+                </style>
+                <ha-card id="card-content" class="card-content"></ha-card>`;
     this._hass = null;
   }
 
