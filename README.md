@@ -12,24 +12,16 @@ The `background-graph-entities` custom component for Home Assistant displays a l
 - Configurable graph settings for each entity
 
 ## Installation
+1. Ensure you have HACS installed.
+2. Make sure you have [mini-graph-card](https://github.com/kalkih/mini-graph-card) installed.
+3. Add this repository to HACS custom repositories.
+4. Install `background-graph-entities` via HACS.
+5. Add the following to your Lovelace configuration:
+   ```yaml
+   resources:
+     - url: /hacsfiles/background-graph-entities/background-graph-entities.js
+       type: module
 
-1. **Download the Component:**
-   - Download the `background-graph-entities.js` file and place it in the `/www/background_graph_entities/` directory of your Home Assistant configuration.
-
-2. **Add Resource:**
-   - Add the following to your `configuration.yaml` under `lovelace` resources section:
-     ```yaml
-     lovelace:
-       resources:
-         - url: /local/background_graph_entities/background-graph-entities.js
-           type: module
-     ```
-
-3. **Add the CSS File:**
-   - Download the `background-graph-entities.css` file and place it in the `/www/background_graph_entities/` directory.
-
-4. **Restart Home Assistant:**
-   - Restart Home Assistant to apply the changes.
 
 ## Usage
 
