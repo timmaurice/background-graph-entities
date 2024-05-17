@@ -1,5 +1,5 @@
 console.log(
-  `%cbackground-graph-entities\n%cVersion: ${"0.0.2"}`,
+  `%cbackground-graph-entities\n%cVersion: ${"0.0.3"}`,
   "color: #fff; background-color: #191970; font-weight: bold;",
   ""
 );

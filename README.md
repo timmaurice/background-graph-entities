@@ -93,4 +93,4 @@ function refreshComponent() {
 
 The `background-graph-entities` custom component is a powerful tool for visualizing sensor data in Home Assistant. Its flexibility in configuration and ease of use make it a great addition to any Home Assistant setup.
 
-For further assistance or to report issues, please visit the [GitHub repository](#).
+For further assistance or to report issues, please visit the [GitHub repository](https://github.com/timmaurice/background-graph-entities).
