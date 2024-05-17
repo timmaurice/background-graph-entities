@@ -9,18 +9,23 @@ class BackgroundGraphEntities extends HTMLElement {
     super();
     this.attachShadow({ mode: "open" });
 
-    // Get the URL of the current script
-    const currentScript = document.currentScript || Array.from(document.getElementsByTagName('script')).pop();
-    const scriptUrl = new URL(currentScript.src);
+    // Fetch the CSS file content
+    fetch(new URL('background-graph-entities.css', import.meta.url))
+      .then(response => response.text())
+      .then(css => {
+        // Create a <style> element
+        const styleElement = document.createElement('style');
+        styleElement.textContent = css;
 
-    // Construct the path to the CSS file
-    const cssPath = new URL('background-graph-entities.css', scriptUrl);
+        // Append the <style> element to the shadow DOM
+        this.shadowRoot.appendChild(styleElement);
 
-    // Set the shadow DOM content with the dynamic CSS path
-    this.shadowRoot.innerHTML = `
-        <link rel="stylesheet" href="${cssPath}">
-        <ha-card id="card-content" class="card-content"></ha-card>
-      `;
+        // Set the HTML content of the shadow DOM
+        this.shadowRoot.innerHTML += `
+          <ha-card id="card-content" class="card-content"></ha-card>
+        `;
+      })
+      .catch(error => console.error('Error loading CSS:', error));
 
     this._hass = null;
   }
