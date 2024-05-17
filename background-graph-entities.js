@@ -1,6 +1,6 @@
 console.log(
-  `%cbackground-graph-entities\n%cVersion: ${"0.0.1"}`,
-  "color: #191970; font-weight: bold;",
+  `%cbackground-graph-entities\n%cVersion: ${"0.0.2"}`,
+  "color: #fff; background-color: #191970; font-weight: bold;",
   ""
 );
 
@@ -8,25 +8,12 @@ class BackgroundGraphEntities extends HTMLElement {
   constructor() {
     super();
     this.attachShadow({ mode: "open" });
-
-    // Fetch the CSS file content
-    fetch(new URL('background-graph-entities.css', import.meta.url))
-      .then(response => response.text())
-      .then(css => {
-        // Create a <style> element
-        const styleElement = document.createElement('style');
-        styleElement.textContent = css;
-
-        // Append the <style> element to the shadow DOM
-        this.shadowRoot.appendChild(styleElement);
-
-        // Set the HTML content of the shadow DOM
-        this.shadowRoot.innerHTML += `
-          <ha-card id="card-content" class="card-content"></ha-card>
-        `;
-      })
-      .catch(error => console.error('Error loading CSS:', error));
-
+    this.shadowRoot.innerHTML = `<ha-card id="card-content" class="card-content"></ha-card>`;
+    this.attachShadow({ mode: 'open' });
+    const linkElem = document.createElement('link');
+    linkElem.setAttribute('rel', 'stylesheet');
+    linkElem.setAttribute('href', `${import.meta.url.replace('.js', '.css')}`);
+    this.shadowRoot.appendChild(linkElem);
     this._hass = null;
   }
 
