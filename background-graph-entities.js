@@ -8,45 +8,46 @@ class BackgroundGraphEntities extends HTMLElement {
   constructor() {
     super();
     this.attachShadow({ mode: "open" });
-    this.shadowRoot.innerHTML = `
-                <style>
-                    .card-content {
-                        padding: 16px;
-                    }
+    this.shadowRoot.innerHTML = `<style>
+.card-content {
+    padding: 16px;
+}
 
-                    .entity-row {
-                        display: flex;
-                        position: relative;
-                        margin-bottom: 8px;
-                    }
+.entity-row {
+    align-items: center;
+    display: flex;
+    height: 40px;
+    margin-bottom: 8px;
+    position: relative;
+}
 
-                    .entity-icon {
-                        fill: white;
-                        width: 24px;
-                        height: 24px;
-                        margin-right: 8px; /* Adjust as needed */
-                    }
+.entity-row:last-child() {
+  margin-bottom: 0;
+}
 
-                    .entity-name {
-                        font-weight: bold;
-                    }
+.entity-icon {
+    fill: white;
+    width: 40px;
+    margin-right: 8px;
+    text-align:center;
+}
 
-                    .entity-value {
-                        color: var(--primary-text-color);
-                        margin-left: auto;
-                    }
+.entity-value {
+    color: var(--primary-text-color);
+    margin-left: auto;
+}
 
-                    .mini-graph-container {
-                        --card-background-color: none;
-                        --ha-card-border-radius: 0;
-                        --ha-card-border-width: 0;
-                        position: absolute;
-                        top: 0;
-                        left: 0;
-                        right: 0;
-                        bottom: 0;
-                        pointer-events: none;
-                    }
+.mini-graph-container {
+    --card-background-color: none;
+    --ha-card-border-radius: 0;
+    --ha-card-border-width: 0;
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    pointer-events: none;
+}
                 </style>
                 <ha-card id="card-content" class="card-content"></ha-card>`;
     this._hass = null;
@@ -108,7 +109,7 @@ class BackgroundGraphEntities extends HTMLElement {
     miniGraphCard.setConfig({
       entities: [{ entity: entity }],
       group: true,
-      height: 35,
+      height: 56,
       hour24: true,
       hours_to_show: this.config.hoursToShow || 24,
       line_color: this.config.line_color || "rgba(255, 255, 255, 0.2)",
