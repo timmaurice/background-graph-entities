@@ -10,43 +10,44 @@ class BackgroundGraphEntities extends HTMLElement {
     this.attachShadow({ mode: "open" });
     this.shadowRoot.innerHTML = `<style>
 .card-content {
-    padding: 16px;
+  padding: 16px;
 }
 
 .entity-row {
-    align-items: center;
-    display: flex;
-    height: 40px;
-    margin-bottom: 8px;
-    position: relative;
+  align-items: center;
+  cursor: pointer;
+  display: flex;
+  height: 40px;
+  margin-bottom: 8px;
+  position: relative;
 }
 
-.entity-row:last-child() {
+.entity-row:last-of-type {
   margin-bottom: 0;
 }
 
 .entity-icon {
-    fill: white;
-    width: 40px;
-    margin-right: 8px;
-    text-align:center;
+  fill: white;
+  margin-right: 8px;
+  text-align:center;
+  width: 40px;
 }
 
 .entity-value {
-    color: var(--primary-text-color);
-    margin-left: auto;
+  color: var(--primary-text-color);
+  margin-left: auto;
 }
 
 .mini-graph-container {
-    --card-background-color: none;
-    --ha-card-border-radius: 0;
-    --ha-card-border-width: 0;
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    pointer-events: none;
+  --card-background-color: none;
+  --ha-card-border-radius: 0;
+  --ha-card-border-width: 0;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
 }
                 </style>
                 <ha-card id="card-content" class="card-content"></ha-card>`;
