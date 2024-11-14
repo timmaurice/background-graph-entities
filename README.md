@@ -4,6 +4,8 @@
 
 The `background-graph-entities` custom component for Home Assistant displays a list of entities with their current state and a mini graph showing the entity's history. This component is ideal for monitoring various sensor data, such as temperature, humidity, or other metrics.
 
+![Screenshot of the Background Graph Entities Custom Component](https://raw.githubusercontent.com/timmaurice/background-graph-entities/refs/heads/main/image.png)
+
 ## Features
 
 - Displays current state and mini graph for each entity
@@ -76,26 +78,6 @@ To debug or make changes to this component:
 1. Ensure your development environment is set up with a local instance of Home Assistant.
 2. Edit the `background-graph-entities.js` file as needed.
 3. Reload the browser or use the `Refresh` button in Home Assistant to see your changes.
-
-### Refresh Component
-
-If a configuration update is detected, the component automatically refreshes:
-
-```javascript
-window.addEventListener("hass-api-called", (event) => {
-  const detail = event.detail;
-  if (detail.success && detail.path === "config/config_entries/entry_update") {
-    refreshComponent();
-  }
-});
-
-function refreshComponent() {
-  const backgroundGraphEntities = document.querySelector("background-graph-entities");
-  if (backgroundGraphEntities) {
-    backgroundGraphEntities.setConfig(backgroundGraphEntities.config);
-  }
-}
-```
 
 ## Conclusion
 

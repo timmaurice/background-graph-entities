@@ -1,5 +1,5 @@
 console.log(
-  `%cbackground-graph-entities\n%cVersion: ${"0.0.1"}`,
+  `%cbackground-graph-entities\n%cVersion: ${"0.0.2"}`,
   "color: #fff; background-color: #191970; font-weight: bold;",
   ""
 );
@@ -66,6 +66,7 @@ class BackgroundGraphEntities extends HTMLElement {
   async _createCard() {
     const cardContent = this.shadowRoot.getElementById("card-content");
     cardContent.innerHTML = ""; // Clear previous content
+    const fragment = document.createDocumentFragment();
 
     for (const entity of this.config.entities) {
       const entityRow = document.createElement("div");
@@ -77,8 +78,7 @@ class BackgroundGraphEntities extends HTMLElement {
 
       const entityIcon = document.createElement("ha-icon");
       entityIcon.className = "entity-icon";
-      const iconValue = entity.icon || "mdi:alert";
-      entityIcon.setAttribute("icon", iconValue);
+      entityIcon.setAttribute("icon", entity.icon || "mdi:alert");
       entityRow.appendChild(entityIcon);
 
       const entityName = document.createElement("div");
@@ -86,21 +86,24 @@ class BackgroundGraphEntities extends HTMLElement {
       entityName.textContent = entity.name || entity.entity;
       entityRow.appendChild(entityName);
 
-      // Create a container for the mini graph card
       const graphContainer = document.createElement("div");
       graphContainer.className = "mini-graph-container";
       entityRow.appendChild(graphContainer);
 
-      // Create and append the mini-graph-card
-      await this._createMiniGraphCard(graphContainer, entity.entity);
-
       const entityValue = document.createElement("div");
       entityValue.className = "entity-value";
-      entityValue.textContent = "Loading..."; // Initial state
+      entityValue.textContent = "Loading...";
       entityRow.appendChild(entityValue);
 
-      cardContent.appendChild(entityRow);
+      fragment.appendChild(entityRow);
+
+      // Lazy load the graph for the entity after a delay
+      setTimeout(
+        () => this._createMiniGraphCard(graphContainer, entity.entity),
+        0
+      );
     }
+    cardContent.appendChild(fragment);
   }
 
   async _createMiniGraphCard(container, entity) {
@@ -166,7 +169,8 @@ class BackgroundGraphEntities extends HTMLElement {
         );
         if (entityValue) {
           // Display state value along with unit of measurement
-          entityValue.textContent = `${stateObj.state} ${stateObj.attributes.unit_of_measurement || ''}`;
+          entityValue.textContent = `${stateObj.state} ${stateObj.attributes.unit_of_measurement || ""
+            }`;
         }
       }
     });
