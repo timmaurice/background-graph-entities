@@ -1,5 +1,5 @@
 console.log(
-  `%cbackground-graph-entities\n%cVersion: ${"0.0.2"}`,
+  `%cbackground-graph-entities\n%cVersion: ${"0.0.3"}`,
   "color: #fff; background-color: #191970; font-weight: bold;",
   ""
 );
@@ -44,7 +44,7 @@ class BackgroundGraphEntities extends HTMLElement {
   --ha-card-border-width: 0;
   position: absolute;
   top: 0;
-  left: 0;
+  left: 45px;
   right: 0;
   bottom: 0;
   pointer-events: none;
@@ -168,9 +168,16 @@ class BackgroundGraphEntities extends HTMLElement {
           `.entity-row[data-entity="${entity.entity}"] .entity-value`
         );
         if (entityValue) {
-          // Display state value along with unit of measurement
-          entityValue.textContent = `${stateObj.state} ${stateObj.attributes.unit_of_measurement || ""
-            }`;
+          const state = parseInt(stateObj.state, 10);
+          const unit = stateObj.attributes.unit_of_measurement || "";
+
+          if (unit.toLowerCase() === "min" && state > 60) {
+            const hours = Math.floor(state / 60);
+            const minutes = state % 60;
+            entityValue.textContent = `${hours}h ${minutes}min`;
+          } else {
+            entityValue.textContent = `${stateObj.state} ${unit}`;
+          }
         }
       }
     });

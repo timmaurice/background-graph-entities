@@ -35,7 +35,7 @@ entities:
   - entity: sensor.temperature_corfu
     name: Temperature Corfu
     icon: mdi:thermometer
-  - entity: sensor.temperaturesensor_average_inside
+  - entity: sensor.temperature_sensor_average_inside
     name: Temperature Average Inside
 ```
 
@@ -59,7 +59,7 @@ entities:
   - entity: sensor.temperature_corfu
     name: Temperature Corfu
     icon: mdi:thermometer
-  - entity: sensor.temperaturesensor_average_inside
+  - entity: sensor.temperature_sensor_average_inside
     name: Temperature Average Inside
     icon: mdi:home-thermometer
 hoursToShow: 24
@@ -79,8 +79,6 @@ To debug or make changes to this component:
 2. Edit the `background-graph-entities.js` file as needed.
 3. Reload the browser or use the `Refresh` button in Home Assistant to see your changes.
 
-## Conclusion
-
-The `background-graph-entities` custom component is a powerful tool for visualizing sensor data in Home Assistant. Its flexibility in configuration and ease of use make it a great addition to any Home Assistant setup.
+---
 
 For further assistance or to report issues, please visit the [GitHub repository](https://github.com/timmaurice/background-graph-entities).
