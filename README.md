@@ -1,10 +1,14 @@
 # Background Graph Entities Custom Component
 
+[![hacs_badge](https://img.shields.io/badge/HACS-Default-41BDF5.svg?style=for-the-badge)](https://github.com/timmaurice/lovelace-background-graph-entities)
+![GitHub release (latest by date)](https://img.shields.io/github/downloads/timmaurice/lovelace-background-graph-entities/total?style=for-the-badge)
+![Release](https://img.shields.io/github/v/release/timmaurice/lovelace-background-graph-entities?style=for-the-badge)
+
 ## Overview
 
 The `background-graph-entities` custom component for Home Assistant displays a list of entities with their current state and a mini graph showing the entity's history. This component is ideal for monitoring various sensor data, such as temperature, humidity, or other metrics.
 
-![Screenshot of the Background Graph Entities Custom Component](https://raw.githubusercontent.com/timmaurice/background-graph-entities/refs/heads/main/image.png)
+![Screenshot of the Background Graph Entities Custom Component](https://raw.githubusercontent.com/timmaurice/lovelace-background-graph-entities/refs/heads/main/image.png)
 
 ## Features
 
@@ -18,13 +22,12 @@ The `background-graph-entities` custom component for Home Assistant displays a l
 1. Ensure you have HACS installed.
 2. Make sure you have [mini-graph-card](https://github.com/kalkih/mini-graph-card) installed.
 3. Add this repository to HACS custom repositories.
-4. Install `background-graph-entities` via HACS.
-5. Add the following to your Lovelace configuration:
    ```yaml
-   resources:
-     - url: /hacsfiles/background-graph-entities/background-graph-entities.js
-       type: module
+   Repository: https://github.com/timmaurice/lovelace-background-graph-entities
+   Type: Dashboard
    ```
+4. Install `background-graph-entities` via HACS.
+   [![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=timmaurice&repository=background-graph-entities&category=Dashboard)
 
 ## Usage
 
@@ -83,4 +86,4 @@ To debug or make changes to this component:
 
 ---
 
-For further assistance or to report issues, please visit the [GitHub repository](https://github.com/timmaurice/background-graph-entities).
+For further assistance or to report issues, please visit the [GitHub repository](https://github.com/timmaurice/lovelace-background-graph-entities).
