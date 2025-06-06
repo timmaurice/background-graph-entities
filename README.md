@@ -14,6 +14,7 @@ The `background-graph-entities` custom component for Home Assistant displays a l
 - Configurable graph settings for each entity
 
 ## Installation
+
 1. Ensure you have HACS installed.
 2. Make sure you have [mini-graph-card](https://github.com/kalkih/mini-graph-card) installed.
 3. Add this repository to HACS custom repositories.
@@ -23,7 +24,7 @@ The `background-graph-entities` custom component for Home Assistant displays a l
    resources:
      - url: /hacsfiles/background-graph-entities/background-graph-entities.js
        type: module
-
+   ```
 
 ## Usage
 
@@ -44,8 +45,9 @@ entities:
 - **entities**: A list of entity configurations.
   - **entity**: The entity ID.
   - **name** (optional): The display name of the entity.
-  - **icon** (optional): The icon for the entity. Defaults to `mdi:alert` if not specified.
+  - **icon** (optional): The icon for the entity. Can be overwritten with [material design icons](https://pictogrammers.com/library/mdi/)<br>e.g.: `mdi:alert`
 - **hoursToShow** (optional): Number of hours to show in the mini graph. Defaults to 24.
+- **line_length** (optional): Length of the line in the mini graph. Default is "long" the other option is "short".
 - **line_color** (optional): Color of the line in the mini graph. Default is "rgba(255, 255, 255, 0.2)".
 - **line_width** (optional): Width of the line in the mini graph in pixels. Default is 5.
 - **points_per_hour** (optional): Points per hour in the mini graph. Default is 1.
@@ -58,11 +60,11 @@ type: custom:background-graph-entities
 entities:
   - entity: sensor.temperature_corfu
     name: Temperature Corfu
-    icon: mdi:thermometer
   - entity: sensor.temperature_sensor_average_inside
     name: Temperature Average Inside
     icon: mdi:home-thermometer
 hoursToShow: 24
+line_length: long
 line_color: "rgba(255, 255, 255, 0.2)"
 line_width: 5
 points_per_hour: 1
