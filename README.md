@@ -26,8 +26,8 @@ The `background-graph-entities` custom component for Home Assistant displays a l
    Repository: https://github.com/timmaurice/lovelace-background-graph-entities
    Type: Dashboard
    ```
-4. Install `background-graph-entities` via HACS.
-   [![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=timmaurice&repository=background-graph-entities&category=Dashboard)
+4. Install `background-graph-entities` via HACS.<br>
+   [![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=timmaurice&repository=lovelace-background-graph-entities&category=Dashboard)
 
 ## Usage
 
