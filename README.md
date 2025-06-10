@@ -36,8 +36,8 @@ Add the custom component to your Lovelace configuration. Below is an example con
 ```yaml
 type: custom:background-graph-entities
 entities:
-  - entity: sensor.temperature_corfu
-    name: Temperature Corfu
+  - entity: sensor.temperature_outside
+    name: Temperature Outside
     icon: mdi:thermometer
   - entity: sensor.temperature_sensor_average_inside
     name: Temperature Average Inside
@@ -52,17 +52,29 @@ entities:
 - **hoursToShow** (optional): Number of hours to show in the mini graph. Defaults to 24.
 - **line_length** (optional): Length of the line in the mini graph. Default is "long" the other option is "short".
 - **line_color** (optional): Color of the line in the mini graph. Default is "rgba(255, 255, 255, 0.2)".
+- **line_opacity** (optional): Opacity the mini graph. Default is "1".
 - **line_width** (optional): Width of the line in the mini graph in pixels. Default is 5.
 - **points_per_hour** (optional): Points per hour in the mini graph. Default is 1.
 - **update_interval** (optional): Interval of updates in the mini graph. Default is 600.
+- **color_thresholds** (optional): Gradient color of the line in the mini graph depending on it's value. [see mini graph card documentation](https://github.com/kalkih/mini-graph-card?tab=readme-ov-file#dynamic-line-color)".
 
 ### Example
 
 ```yaml
 type: custom:background-graph-entities
 entities:
-  - entity: sensor.temperature_corfu
-    name: Temperature Corfu
+  - entity: sensor.travel_time_to_nyc
+    name: New York City
+    line_opacity: 0.3
+    color_thresholds:
+      - value: 15
+        color: "#00ff00"
+      - value: 18
+        color: "#ffff00"
+      - value: 20
+        color: "#ff0000"
+      - value: 25
+        color: "#640b0b"
   - entity: sensor.temperature_sensor_average_inside
     name: Temperature Average Inside
     icon: mdi:home-thermometer

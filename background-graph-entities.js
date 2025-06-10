@@ -1,5 +1,5 @@
 console.log(
-  `%cbackground-graph-entities\n%cVersion: ${"0.0.5"}`,
+  `%cbackground-graph-entities\n%cVersion: ${"0.0.6"}`,
   "color: #fff; background-color: #191970; font-weight: bold;",
   "",
 );
@@ -49,9 +49,14 @@ class BackgroundGraphEntities extends HTMLElement {
   width: 40px;
 }
 
+.entity-name {
+  z-index: 1;
+}
+
 .entity-value {
   color: var(--primary-text-color);
   margin-left: auto;
+  z-index: 1;
 }
 
 .mini-graph-container {
@@ -59,11 +64,12 @@ class BackgroundGraphEntities extends HTMLElement {
   --ha-card-border-radius: 0;
   --ha-card-border-width: 0;
   position: absolute;
-  top: 0;
-  left: 45px;
-  right: 0;
   bottom: 0;
+  left: 45px;
+  opacity: var(--line-opacity, 1);
   pointer-events: none;
+  right: 0;
+  top: 0;
 }
 
 .card-content.short .mini-graph-container {
@@ -95,7 +101,6 @@ class BackgroundGraphEntities extends HTMLElement {
 
     // Use ha-state-icon to automatically get entity icons
     let entityIcon;
-    console.log(entityConfig.icon);
     if (entityConfig.icon) {
       entityIcon = document.createElement("ha-icon");
       entityIcon.className = "entity-icon";
@@ -105,12 +110,16 @@ class BackgroundGraphEntities extends HTMLElement {
       entityIcon.className = "entity-icon";
     }
 
-    const entityName = document.createElement("div");
-    entityName.className = "entity-name";
-    entityName.textContent = entityConfig.name || entityConfig.entity;
+    if (entityConfig.line_opacity) {
+      entityRow.style.setProperty("--line-opacity", entityConfig.line_opacity);
+    }
 
     const graphContainer = document.createElement("div");
     graphContainer.className = "mini-graph-container";
+
+    const entityName = document.createElement("div");
+    entityName.className = "entity-name";
+    entityName.textContent = entityConfig.name || entityConfig.entity;
 
     const entityValue = document.createElement("div");
     entityValue.className = "entity-value";
@@ -138,28 +147,27 @@ class BackgroundGraphEntities extends HTMLElement {
       this._entityElements[entityConfig.entity] = {
         valueElement: elements.entityValue,
         iconElement: elements.entityIcon,
+        colorThresholds: entityConfig.color_thresholds || [], // Store color thresholds
       };
       fragment.appendChild(elements.entityRow);
       // Lazy load the graph for the entity after a delay
       setTimeout(
-        () =>
-          this._createMiniGraphCard(
-            elements.graphContainer,
-            entityConfig.entity,
-          ),
+        () => this._createMiniGraphCard(elements.graphContainer, entityConfig),
         0,
       );
     }
     cardContent.appendChild(fragment);
   }
 
-  async _createMiniGraphCard(container, entity) {
+  async _createMiniGraphCard(container, entityConfig) {
     await customElements.whenDefined("mini-graph-card");
 
     const miniGraphCard = document.createElement("mini-graph-card");
+    // Pass entityConfig to configure the mini-graph-card
     miniGraphCard.setConfig({
-      entities: [{ entity: entity }],
+      entities: [{ entity: entityConfig.entity }], // Use entityConfig.entity
       group: true,
+      // The following options are taken from the main card config
       height: 56,
       hour24: true,
       line_length: this.config.line_length || "long",
@@ -172,6 +180,7 @@ class BackgroundGraphEntities extends HTMLElement {
         ...BackgroundGraphEntities.MINI_GRAPH_DEFAULT_SHOW_OPTIONS,
         ...(this.config.mini_graph_show_options || {}),
       },
+      color_thresholds: entityConfig.color_thresholds || [], // Pass color thresholds
     });
 
     container.appendChild(miniGraphCard);
