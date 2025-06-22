@@ -1,5 +1,5 @@
 console.log(
-  `%cbackground-graph-entities\n%cVersion: ${"0.0.6"}`,
+  `%cbackground-graph-entities\n%cVersion: ${"0.0.7"}`,
   "color: #fff; background-color: #191970; font-weight: bold;",
   "",
 );
@@ -83,11 +83,23 @@ class BackgroundGraphEntities extends HTMLElement {
   }
 
   setConfig(config) {
-    if (!config.entities) {
+    if (
+      !config.entities ||
+      !Array.isArray(config.entities) ||
+      config.entities.length === 0
+    ) {
       throw new Error("You need to define at least one entity");
     }
 
-    this.config = config;
+    this.config = {
+      ...config,
+      entities: config.entities.map((entityConf) => {
+        if (typeof entityConf === "string") {
+          return { entity: entityConf };
+        }
+        return entityConf;
+      }),
+    };
     this._createCard();
   }
 
@@ -127,7 +139,7 @@ class BackgroundGraphEntities extends HTMLElement {
 
     entityRow.append(entityIcon, entityName, graphContainer, entityValue);
 
-    return { entityRow, entityIcon, graphContainer, entityValue };
+    return { entityRow, entityIcon, graphContainer, entityValue, entityName };
   }
 
   async _createCard() {
@@ -147,6 +159,7 @@ class BackgroundGraphEntities extends HTMLElement {
       this._entityElements[entityConfig.entity] = {
         valueElement: elements.entityValue,
         iconElement: elements.entityIcon,
+        nameElement: elements.entityName,
         colorThresholds: entityConfig.color_thresholds || [], // Store color thresholds
       };
       fragment.appendChild(elements.entityRow);
@@ -213,7 +226,7 @@ class BackgroundGraphEntities extends HTMLElement {
       const cachedElements = this._entityElements[entityConfig.entity];
       if (!cachedElements) return; // Should not happen if _createCard ran correctly
 
-      const { iconElement, valueElement } = cachedElements;
+      const { iconElement, valueElement, nameElement } = cachedElements;
       const stateObj = this._getState(entityConfig.entity);
 
       if (stateObj) {
@@ -228,6 +241,16 @@ class BackgroundGraphEntities extends HTMLElement {
             valueElement.textContent = `${hours}h ${minutes}min`;
           } else {
             valueElement.textContent = `${stateObj.state} ${unit}`;
+          }
+        }
+
+        // Update entity name
+        if (nameElement) {
+          if (entityConfig.name) {
+            nameElement.textContent = entityConfig.name;
+          } else {
+            nameElement.textContent =
+              stateObj.attributes.friendly_name || entityConfig.entity;
           }
         }
 
@@ -250,6 +273,9 @@ class BackgroundGraphEntities extends HTMLElement {
         if (iconElement) {
           iconElement.hass = this._hass;
           iconElement.stateObj = null; // Clear the state for the icon
+        }
+        if (nameElement) {
+          nameElement.textContent = entityConfig.name || entityConfig.entity;
         }
       }
     });

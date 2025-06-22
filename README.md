@@ -60,6 +60,19 @@ entities:
 
 ### Example
 
+#### Simplified Configuration _(from v0.0.7)_
+
+For a quicker setup, you can also provide a simple list of entity IDs directly. The card will use the entity's default name.
+
+```yaml
+type: custom:background-graph-entities
+entities:
+  - sensor.my_sensor
+  - sensor.another_sensor
+```
+
+#### Full config example
+
 ```yaml
 type: custom:background-graph-entities
 entities:
