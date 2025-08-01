@@ -1,0 +1,105 @@
+@use './color-picker';
+
+@include color-picker.color-picker-styles;
+
+.card-config {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.side-by-side {
+  display: flex;
+  gap: 16px;
+}
+
+.side-by-side > * {
+  flex: 1;
+}
+
+.entities-container {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.entity-container {
+  border: 1px solid var(--divider-color);
+  border-radius: var(--ha-card-border-radius, 4px);
+  padding: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition:
+    border-color 0.2s ease-in-out,
+    box-shadow 0.2s ease-in-out,
+    background-color 0.2s ease-in-out;
+
+  &.dragging {
+    opacity: 0.5;
+    background: var(--secondary-background-color);
+  }
+
+  &.drag-over {
+    border-style: dashed;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 5px var(--primary-color);
+  }
+}
+
+.drag-handle {
+  cursor: move;
+  color: var(--secondary-text-color);
+}
+
+.entity-content {
+  flex-grow: 1;
+}
+
+.entity-main {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.entity-main ha-entity-picker {
+  flex-grow: 1;
+}
+
+.remove-icon {
+  /* No margin needed, flex alignment handles it */
+}
+
+ha-expansion-panel {
+  --expansion-panel-content-padding: 0;
+  padding-top: 8px;
+}
+
+.overrides {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px;
+}
+
+pre {
+  background: var(--secondary-background-color);
+  border-radius: var(--ha-card-border-radius, 4px);
+  padding: 8px;
+  font-size: 12px;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.threshold-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  .threshold-inputs {
+    display: flex;
+    flex-grow: 1;
+    gap: 16px;
+    align-items: flex-end;
+  }
+}

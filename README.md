@@ -20,13 +20,12 @@ The `background-graph-entities` custom component for Home Assistant displays a l
 ## Installation
 
 1. Ensure you have HACS installed.
-2. Make sure you have [mini-graph-card](https://github.com/kalkih/mini-graph-card) installed.
-3. Add this repository to HACS custom repositories.
+2. Add this repository to HACS as a custom repository.
    ```yaml
    Repository: https://github.com/timmaurice/lovelace-background-graph-entities
    Type: Dashboard
    ```
-4. Install `background-graph-entities` via HACS.<br>
+3. Install `background-graph-entities` via HACS.<br>
    [![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=timmaurice&repository=lovelace-background-graph-entities&category=Dashboard)
 
 ## Usage
@@ -52,9 +51,9 @@ entities:
 - **hoursToShow** (optional): Number of hours to show in the mini graph. Defaults to 24.
 - **title** (optional): A title for the card.
 - **line_length** (optional): Length of the line in the mini graph. Default is "long" the other option is "short".
-- **line_color** (optional): Color of the line in the mini graph. Default is `var(--primary-text-color)`.
-- **line_opacity** (optional): Opacity of the mini graph line. Default is `0.2`.
-- **line_width** (optional): Width of the line in the mini graph in pixels. Default is `2`.
+- **line_color** (optional): Color of the line in the mini graph. Default is `rgba(255, 255, 255, 0.2)`.
+- **line_opacity** (optional): Opacity of the mini graph line. Default is `1`.
+- **line_width** (optional): Width of the line in the mini graph in pixels. Default is `5`.
 
 ### Example
 

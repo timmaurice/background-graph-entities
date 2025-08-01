@@ -1,0 +1,27 @@
+{
+  "editor": {
+    "general": "General",
+    "title": "Title (Optional)",
+    "graph_appearance": "Graph Appearance",
+    "hours_to_show": "Hours To Show",
+    "line_width": "Line Width",
+    "line_length": "Line Length",
+    "line_length_long": "Long",
+    "line_length_short": "Short",
+    "line_color": "Line Color",
+    "line_opacity": "Line Opacity",
+    "color_thresholds": "Color Thresholds",
+    "add_threshold": "Add Threshold",
+    "value": "Value",
+    "color": "Color",
+    "data_settings": "Data Settings",
+    "points_per_hour": "Points per Hour",
+    "update_interval": "Update Interval (seconds)",
+    "entities": "Entities",
+    "entity": "Entity",
+    "add_entity": "Add Entity",
+    "optional_overrides": "Optional Overrides",
+    "name": "Name",
+    "icon": "Icon"
+  }
+}

@@ -6,7 +6,7 @@
   "domains": ["lovelace"],
   "codeowners": ["@timmaurice"],
   "version": "1.0.0",
-  "homeassistant": "2023.1.0",
+  "homeassistant": "2023.4.0",
   "documentation": "https://github.com/timmaurice/lovelace-background-graph-entities",
   "issue_tracker": "https://github.com/timmaurice/lovelace-background-graph-entities/issues",
   "keywords": ["lovelace", "ui", "graph", "entities", "background", "visualization"]

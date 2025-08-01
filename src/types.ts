@@ -2,6 +2,7 @@
 export interface HomeAssistant {
   states: { [entity_id: string]: HassEntity };
   localize: (key: string, ...args: unknown[]) => string;
+  language: string;
   callWS: <T>(message: { type: string; [key: string]: unknown }) => Promise<T>;
   // You can expand this with more properties from the hass object if needed
 }
@@ -44,7 +45,6 @@ export interface EntityConfig {
   entity: string;
   name?: string;
   icon?: string;
-  line_opacity?: number;
   color_thresholds?: ColorThreshold[];
 }
 
@@ -55,4 +55,8 @@ export interface BackgroundGraphEntitiesConfig extends LovelaceCardConfig {
   line_length?: 'short' | 'long';
   line_color?: string;
   line_width?: number;
+  line_opacity?: number;
+  points_per_hour?: number;
+  update_interval?: number;
+  color_thresholds?: ColorThreshold[];
 }
