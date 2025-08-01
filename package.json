@@ -1,6 +1,6 @@
 {
   "name": "background-graph-entities",
-  "version": "0.0.7",
+  "version": "1.0.0",
   "description": "The `background-graph-entities` custom component for Home Assistant displays a list of entities with their current state and a mini graph showing the entity's history. This component is ideal for monitoring various sensor data, such as temperature, humidity, or other metrics.",
   "homepage": "https://github.com/timmaurice/lovelace-background-graph-entities#readme",
   "bugs": {
@@ -12,19 +12,34 @@
   },
   "license": "MIT",
   "author": "Tim Maurice Bayer",
-  "type": "commonjs",
-  "main": "background-graph-entities.js",
+  "type": "module",
+  "main": "dist/background-graph-entities.js",
   "scripts": {
     "format": "prettier . --write",
-    "lint": "eslint",
-    "prepare": "husky"
+    "lint": "eslint .",
+    "build": "rollup -c",
+    "watch": "rollup -c -w"
   },
   "devDependencies": {
-    "@eslint/js": "^9.28.0",
-    "@eslint/markdown": "^6.5.0",
-    "eslint": "^9.28.0",
-    "globals": "^16.2.0",
-    "husky": "^9.1.7",
-    "prettier": "^3.5.3"
+    "@rollup/plugin-node-resolve": "^16.0.0",
+    "@rollup/plugin-replace": "^6.0.2",
+    "@rollup/plugin-typescript": "^12.1.4",
+    "@types/d3": "^7.4.3",
+    "eslint": "^9.32.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-lit": "^2.1.1",
+    "eslint-plugin-wc": "^3.0.1",
+    "prettier": "^3.5.3",
+    "rollup": "^4.19.0",
+    "sass": "^1.77.8",
+    "typescript": "^5.5.4",
+    "typescript-eslint": "^8.38.0"
+  },
+  "dependencies": {
+    "d3-array": "^3.2.4",
+    "d3-scale": "^4.0.2",
+    "d3-selection": "^3.0.0",
+    "d3-shape": "^3.2.0",
+    "lit": "^3.1.4"
   }
 }

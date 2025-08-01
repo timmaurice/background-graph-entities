@@ -1,23 +1,31 @@
-import js from "@eslint/js";
-import globals from "globals";
-import markdown from "@eslint/markdown";
-import { defineConfig } from "eslint/config";
+import globals from 'globals';
+import js from '@eslint/js';
+import tseslint from 'typescript-eslint';
+import litPlugin from 'eslint-plugin-lit';
+import wcPlugin from 'eslint-plugin-wc';
+import prettierConfig from 'eslint-config-prettier';
 
-export default defineConfig([
+export default tseslint.config(
   {
-    files: ["**/*.{js,mjs,cjs}"],
-    plugins: { js },
-    extends: ["js/recommended"],
+    ignores: ['dist/'],
   },
-  { files: ["**/*.js"], languageOptions: { sourceType: "commonjs" } },
+  js.configs.recommended,
+  ...tseslint.configs.recommended,
   {
-    files: ["**/*.{js,mjs,cjs}"],
-    languageOptions: { globals: globals.browser },
+    files: ['src/**/*.ts'],
+    plugins: {
+      lit: litPlugin,
+      wc: wcPlugin,
+    },
+    rules: {
+      ...litPlugin.configs.recommended.rules,
+      ...wcPlugin.configs.recommended.rules,
+    },
+    languageOptions: {
+      globals: {
+        ...globals.browser,
+      },
+    },
   },
-  {
-    files: ["**/*.md"],
-    plugins: { markdown },
-    language: "markdown/gfm",
-    extends: ["markdown/recommended"],
-  },
-]);
+  prettierConfig,
+);

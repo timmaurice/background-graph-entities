@@ -50,13 +50,11 @@ entities:
   - **name** (optional): The display name of the entity.
   - **icon** (optional): The icon for the entity. Can be overwritten with [material design icons](https://pictogrammers.com/library/mdi/)<br>e.g.: `mdi:alert`
 - **hoursToShow** (optional): Number of hours to show in the mini graph. Defaults to 24.
+- **title** (optional): A title for the card.
 - **line_length** (optional): Length of the line in the mini graph. Default is "long" the other option is "short".
-- **line_color** (optional): Color of the line in the mini graph. Default is "rgba(255, 255, 255, 0.2)".
-- **line_opacity** (optional): Opacity the mini graph. Default is "1".
-- **line_width** (optional): Width of the line in the mini graph in pixels. Default is 5.
-- **points_per_hour** (optional): Points per hour in the mini graph. Default is 1.
-- **update_interval** (optional): Interval of updates in the mini graph. Default is 600.
-- **color_thresholds** (optional): Gradient color of the line in the mini graph depending on it's value. [see mini graph card documentation](https://github.com/kalkih/mini-graph-card?tab=readme-ov-file#dynamic-line-color)".
+- **line_color** (optional): Color of the line in the mini graph. Default is `var(--primary-text-color)`.
+- **line_opacity** (optional): Opacity of the mini graph line. Default is `0.2`.
+- **line_width** (optional): Width of the line in the mini graph in pixels. Default is `2`.
 
 ### Example
 
@@ -75,39 +73,43 @@ entities:
 
 ```yaml
 type: custom:background-graph-entities
+title: Travel Times
 entities:
   - entity: sensor.travel_time_to_nyc
     name: New York City
     line_opacity: 0.3
-    color_thresholds:
-      - value: 15
-        color: "#00ff00"
-      - value: 18
-        color: "#ffff00"
-      - value: 20
-        color: "#ff0000"
-      - value: 25
-        color: "#640b0b"
   - entity: sensor.temperature_sensor_average_inside
     name: Temperature Average Inside
     icon: mdi:home-thermometer
 hoursToShow: 24
-line_length: long
-line_color: "rgba(255, 255, 255, 0.2)"
-line_width: 5
-points_per_hour: 1
-update_interval: 600
+line_width: 3
 ```
 
 ## Development
 
-### Debugging
+To contribute to the development, you'll need to set up a build environment.
 
-To debug or make changes to this component:
+1.  **Clone the repository:**
 
-1. Ensure your development environment is set up with a local instance of Home Assistant.
-2. Edit the `background-graph-entities.js` file as needed.
-3. Reload the browser or use the `Refresh` button in Home Assistant to see your changes.
+    ```bash
+    git clone https://github.com/timmaurice/lovelace-background-graph-entities.git
+    cd lovelace-background-graph-entities
+    ```
+
+2.  **Install dependencies:**
+
+    ```bash
+    npm install
+    ```
+
+3.  **Start the development server:**
+    This command will watch for changes in the `src` directory and automatically rebuild the card.
+
+    ```bash
+    npm run watch
+    ```
+
+4.  In your Home Assistant instance, you will need to configure Lovelace to use the local development version of the card from `dist/background-graph-entities.js`.
 
 ---
 
