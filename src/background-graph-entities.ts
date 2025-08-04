@@ -265,23 +265,26 @@ export class BackgroundGraphEntities extends LitElement implements LovelaceCard 
     }
 
     if (thresholds && thresholds.length > 0) {
+      const thresholdDomain = extent(thresholds, (t) => t.value) as [number, number];
       const gradient = svg
         .append('defs')
         .append('linearGradient')
         .attr('id', gradientId)
-        .attr('x1', '0%')
-        .attr('y1', '100%')
-        .attr('x2', '0%')
-        .attr('y2', '0%');
+        .attr('gradientUnits', 'userSpaceOnUse')
+        .attr('x1', 0)
+        .attr('y1', yScale(thresholdDomain[0]))
+        .attr('x2', 0)
+        .attr('y2', yScale(thresholdDomain[1]));
 
       strokeColor = `url(#${gradientId})`;
 
       const sortedThresholds = [...thresholds].sort((a, b) => a.value - b.value);
       sortedThresholds.forEach((threshold) => {
-        const offset = Math.max(0, Math.min(1, (threshold.value - yDomain[0]) / (yDomain[1] - yDomain[0]) || 0));
+        const range = thresholdDomain[1] - thresholdDomain[0];
+        const offset = range > 0 ? (threshold.value - thresholdDomain[0]) / range : 0;
         gradient
           .append('stop')
-          .attr('offset', `${offset * 100}%`)
+          .attr('offset', `${Math.max(0, Math.min(1, offset)) * 100}%`)
           .attr('stop-color', threshold.color);
       });
     }
@@ -297,8 +300,10 @@ export class BackgroundGraphEntities extends LitElement implements LovelaceCard 
       .attr('class', 'graph-path')
       .attr('d', lineGenerator)
       .attr('stroke', strokeColor)
-      .attr('stroke-opacity', this._config?.line_opacity ?? 1)
-      .attr('stroke-width', this._config?.line_width || 5);
+      .attr('stroke-opacity', this._config?.line_opacity ?? 0.2)
+      .attr('stroke-width', this._config?.line_width || 3)
+      .style('stroke-linecap', 'round')
+      .style('stroke-linejoin', 'round');
   }
 
   private async _fetchAndStoreAllHistory(): Promise<void> {

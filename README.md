@@ -52,8 +52,13 @@ entities:
 - **title** (optional): A title for the card.
 - **line_length** (optional): Length of the line in the mini graph. Default is "long" the other option is "short".
 - **line_color** (optional): Color of the line in the mini graph. Default is `rgba(255, 255, 255, 0.2)`.
-- **line_opacity** (optional): Opacity of the mini graph line. Default is `1`.
-- **line_width** (optional): Width of the line in the mini graph in pixels. Default is `5`.
+- **line_opacity** (optional): Opacity of the mini graph line. The editor provides a slider from 0.1 to 0.8. Default is `0.2`.
+- **line_width** (optional): Width of the line in the mini graph in pixels. Default is `3`.
+- **color_thresholds** (optional): A list of color thresholds for the graph line. This will create a gradient. If used, `line_color` is ignored.
+  - **value**: The threshold value.
+  - **color**: The color for this threshold.
+- **points_per_hour** (optional): How many data points to average into a single point per hour. Default is `1`.
+- **update_interval** (optional): How often to fetch history data in seconds. Default is `600` (10 minutes).
 
 ### Example
 

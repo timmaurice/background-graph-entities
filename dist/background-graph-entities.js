@@ -3789,7 +3789,7 @@ function curveBasis(context) {
   return new Basis(context);
 }
 
-const styles$1 = i$3`.card-content{padding:16px}.card-content.short .graph-container{right:70px}.entity-row{align-items:center;cursor:pointer;display:flex;height:40px;margin-bottom:8px;position:relative}.entity-row:last-of-type{margin-bottom:0}.entity-icon{color:var(--paper-item-icon-color, #44739e);fill:currentColor;margin-right:8px;text-align:center;width:40px}.entity-name{z-index:1}.entity-value{color:var(--primary-text-color);margin-left:auto;z-index:1}.graph-container{position:absolute;bottom:0;left:45px;opacity:var(--line-opacity, 0.2);pointer-events:none;right:0;top:0}.graph-container svg{width:100%;height:100%}.graph-path{fill:none}`;
+const styles$1 = i$3`.card-content{padding:16px}.card-content.short .graph-container{right:70px}.entity-row{align-items:center;cursor:pointer;display:flex;height:40px;margin-bottom:8px;position:relative}.entity-row:last-of-type{margin-bottom:0}.entity-icon{color:var(--paper-item-icon-color, #44739e);fill:currentColor;margin-right:8px;text-align:center;width:40px}.entity-name{z-index:1}.entity-value{color:var(--primary-text-color);margin-left:auto;z-index:1}.graph-container{position:absolute;bottom:0;left:45px;pointer-events:none;right:0;top:0}.graph-container svg{width:100%;height:100%}.graph-path{fill:none}`;
 
 // Define the custom element name
 const ELEMENT_NAME = 'background-graph-entities';
@@ -3983,21 +3983,24 @@ let BackgroundGraphEntities = class BackgroundGraphEntities extends i {
             yDomain[1] += 1;
         }
         if (thresholds && thresholds.length > 0) {
+            const thresholdDomain = extent(thresholds, (t) => t.value);
             const gradient = svg
                 .append('defs')
                 .append('linearGradient')
                 .attr('id', gradientId)
-                .attr('x1', '0%')
-                .attr('y1', '100%')
-                .attr('x2', '0%')
-                .attr('y2', '0%');
+                .attr('gradientUnits', 'userSpaceOnUse')
+                .attr('x1', 0)
+                .attr('y1', yScale(thresholdDomain[0]))
+                .attr('x2', 0)
+                .attr('y2', yScale(thresholdDomain[1]));
             strokeColor = `url(#${gradientId})`;
             const sortedThresholds = [...thresholds].sort((a, b) => a.value - b.value);
             sortedThresholds.forEach((threshold) => {
-                const offset = Math.max(0, Math.min(1, (threshold.value - yDomain[0]) / (yDomain[1] - yDomain[0]) || 0));
+                const range = thresholdDomain[1] - thresholdDomain[0];
+                const offset = range > 0 ? (threshold.value - thresholdDomain[0]) / range : 0;
                 gradient
                     .append('stop')
-                    .attr('offset', `${offset * 100}%`)
+                    .attr('offset', `${Math.max(0, Math.min(1, offset)) * 100}%`)
                     .attr('stop-color', threshold.color);
             });
         }
@@ -4011,8 +4014,10 @@ let BackgroundGraphEntities = class BackgroundGraphEntities extends i {
             .attr('class', 'graph-path')
             .attr('d', lineGenerator)
             .attr('stroke', strokeColor)
-            .attr('stroke-opacity', this._config?.line_opacity ?? 1)
-            .attr('stroke-width', this._config?.line_width || 5);
+            .attr('stroke-opacity', this._config?.line_opacity ?? 0.2)
+            .attr('stroke-width', this._config?.line_width || 3)
+            .style('stroke-linecap', 'round')
+            .style('stroke-linejoin', 'round');
     }
     async _fetchAndStoreAllHistory() {
         if (!this._config?.entities) {
@@ -4134,9 +4139,9 @@ window.customCards.push({
     description: 'A card to display entities with a background graph.',
 });
 
-var editor$2={general:"Allgemein",title:"Titel (Optional)",graph_appearance:"Graph-Darstellung",hours_to_show:"Stunden zum Anzeigen",line_width:"Linienbreite",line_length:"Linienlänge",line_length_long:"Lang",line_length_short:"Kurz",line_color:"Linienfarbe",line_opacity:"Linienopazität",color_thresholds:"Farbschwellenwerte",add_threshold:"Schwellenwert hinzufügen",value:"Wert",color:"Farbe",data_settings:"Dateneinstellungen",points_per_hour:"Punkte pro Stunde",update_interval:"Aktualisierungsintervall (Sekunden)",entities:"Entitäten",entity:"Entität",add_entity:"Entität hinzufügen",optional_overrides:"Optionale Überschreibungen",name:"Name",icon:"Icon"};var de = {editor:editor$2};
+var editor$2={general:"Allgemein",title:"Titel (Optional)",graph_appearance:"Graph-Darstellung",hours_to_show:"Stunden zum Anzeigen",line_width:"Linienbreite",line_length:"Linienlänge",line_length_long:"Lang",line_length_short:"Kurz",line_color:"Linienfarbe",line_opacity:"Linienopazität",color_mode:"Farbmodus",color_mode_single:"Einzelfarbe",color_mode_threshold:"Schwellenwerte",color_thresholds:"Farbschwellenwerte",add_threshold:"Schwellenwert hinzufügen",value:"Wert",color:"Farbe",data_settings:"Dateneinstellungen",points_per_hour:"Punkte pro Stunde",update_interval:"Aktualisierungsintervall (Sekunden)",entities:"Entitäten",entity:"Entität",add_entity:"Entität hinzufügen",optional_overrides:"Optionale Überschreibungen",name:"Name",icon:"Icon"};var de = {editor:editor$2};
 
-var editor$1={general:"General",title:"Title (Optional)",graph_appearance:"Graph Appearance",hours_to_show:"Hours To Show",line_width:"Line Width",line_length:"Line Length",line_length_long:"Long",line_length_short:"Short",line_color:"Line Color",line_opacity:"Line Opacity",color_thresholds:"Color Thresholds",add_threshold:"Add Threshold",value:"Value",color:"Color",data_settings:"Data Settings",points_per_hour:"Points per Hour",update_interval:"Update Interval (seconds)",entities:"Entities",entity:"Entity",add_entity:"Add Entity",optional_overrides:"Optional Overrides",name:"Name",icon:"Icon"};var en = {editor:editor$1};
+var editor$1={general:"General",title:"Title (Optional)",graph_appearance:"Graph Appearance",hours_to_show:"Hours To Show",line_width:"Line Width",line_length:"Line Length",line_length_long:"Long",line_length_short:"Short",line_color:"Line Color",line_opacity:"Line Opacity",color_mode:"Color Mode",color_mode_single:"Single Color",color_mode_threshold:"Thresholds",color_thresholds:"Color Thresholds",add_threshold:"Add Threshold",value:"Value",color:"Color",data_settings:"Data Settings",points_per_hour:"Points per Hour",update_interval:"Update Interval (seconds)",entities:"Entities",entity:"Entity",add_entity:"Add Entity",optional_overrides:"Optional Overrides",name:"Name",icon:"Icon"};var en = {editor:editor$1};
 
 const translations = {
     de,
@@ -4181,7 +4186,7 @@ const fireEvent = (node, type, detail, options) => {
     node.dispatchEvent(event);
 };
 
-const styles = i$3`.color-input-wrapper{position:relative;flex:1}.color-picker-popup{position:absolute;top:100%;left:0;z-index:10;padding:8px;background-color:var(--card-background-color, white);border:1px solid var(--divider-color);border-radius:var(--ha-card-border-radius, 4px);box-shadow:0px 5px 5px -3px rgba(0,0,0,.2),0px 8px 10px 1px rgba(0,0,0,.14),0px 3px 14px 2px rgba(0,0,0,.12)}.color-picker-popup rgb-string-color-picker{width:200px;height:200px}.color-preview{width:28px;height:28px;border-radius:4px;border:1px solid var(--divider-color);cursor:pointer;box-sizing:border-box}.card-config{display:flex;flex-direction:column;gap:16px}.side-by-side{display:flex;gap:16px}.side-by-side>*{flex:1}.entities-container{display:flex;flex-direction:column;gap:12px}.entity-container{border:1px solid var(--divider-color);border-radius:var(--ha-card-border-radius, 4px);padding:8px;display:flex;align-items:center;gap:8px;transition:border-color .2s ease-in-out,box-shadow .2s ease-in-out,background-color .2s ease-in-out}.entity-container.dragging{opacity:.5;background:var(--secondary-background-color)}.entity-container.drag-over{border-style:dashed;border-color:var(--primary-color);box-shadow:0 0 5px var(--primary-color)}.drag-handle{cursor:move;color:var(--secondary-text-color)}.entity-content{flex-grow:1}.entity-main{display:flex;align-items:center;gap:8px}.entity-main ha-entity-picker{flex-grow:1}ha-expansion-panel{--expansion-panel-content-padding: 0;padding-top:8px}.overrides{display:flex;flex-direction:column;gap:16px;padding:16px}pre{background:var(--secondary-background-color);border-radius:var(--ha-card-border-radius, 4px);padding:8px;font-size:12px;white-space:pre-wrap;word-break:break-all}.threshold-container{display:flex;align-items:center;gap:8px}.threshold-container .threshold-inputs{display:flex;flex-grow:1;gap:16px;align-items:flex-end}`;
+const styles = i$3`.color-input-wrapper{position:relative;flex:1}.color-picker-popup{position:absolute;top:100%;left:0;z-index:10;padding:8px;background-color:var(--card-background-color, white);border:1px solid var(--divider-color);border-radius:var(--ha-card-border-radius, 4px);box-shadow:0px 5px 5px -3px rgba(0,0,0,.2),0px 8px 10px 1px rgba(0,0,0,.14),0px 3px 14px 2px rgba(0,0,0,.12)}.color-picker-popup rgb-string-color-picker{width:200px;height:200px}.color-preview{width:28px;height:28px;border-radius:4px;border:1px solid var(--divider-color);cursor:pointer;box-sizing:border-box}.card-config{display:flex;flex-direction:column;gap:16px}.color-picker-popup{display:none}.side-by-side{display:flex;gap:16px}.side-by-side>*{flex:1}.entities-container{display:flex;flex-direction:column;gap:12px}.entity-container{align-items:center;border:1px solid var(--divider-color);border-radius:var(--ha-card-border-radius, 4px);display:flex;gap:8px;padding:8px;transition:border-color .2s ease-in-out,box-shadow .2s ease-in-out,background-color .2s ease-in-out}.entity-container.dragging{background:var(--secondary-background-color);opacity:.5}.entity-container.drag-over{border-color:var(--primary-color);border-style:dashed;box-shadow:0 0 5px var(--primary-color)}.drag-handle{color:var(--secondary-text-color);cursor:move}.entity-content{flex-grow:1}.entity-main{align-items:center;display:flex;gap:8px}.entity-main ha-entity-picker{flex-grow:1}ha-expansion-panel{--expansion-panel-content-padding: 0;margin-top:8px}ha-expansion-panel[outlined][expanded]{--ha-card-background: var(--secondary-background-color)}.overrides{display:flex;flex-direction:column;gap:16px;padding:16px}pre{background:var(--secondary-background-color);border-radius:var(--ha-card-border-radius, 4px);font-size:12px;padding:8px;white-space:pre-wrap;word-break:break-all}.threshold-container{align-items:center;display:flex;gap:8px}.threshold-container .threshold-inputs{align-items:flex-end;display:flex;flex-grow:1;gap:16px}.color-input-wrapper{align-items:center;display:flex;gap:8px}.color-input-wrapper ha-textfield{flex-grow:1}.color-preview{border:1px solid var(--divider-color);border-radius:4px;box-sizing:border-box;cursor:pointer;flex-shrink:0;height:28px;width:28px}.opacity-slider-container{display:flex;flex-direction:column;width:100%}.label-container{color:var(--secondary-text-color);display:flex;font-size:12px;justify-content:space-between;margin-bottom:-8px;margin-left:3px}`;
 
 // Clamps a value between an upper and lower bound.
 // We use ternary operators because it makes the minified code
@@ -4565,45 +4570,71 @@ let BackgroundGraphEntitiesEditor = class BackgroundGraphEntitiesEditor extends 
     _dropThresholdIndex = null;
     _activeColorPicker = null;
     setConfig(config) {
-        try {
-            console.log('[BGE Editor] setConfig received:', JSON.parse(JSON.stringify(config)));
-            const entities = (config.entities || []).filter(Boolean).map((e) => (typeof e === 'string' ? { entity: e } : e));
-            this._config = {
-                ...config,
-                entities,
-                color_thresholds: config.color_thresholds || [],
-            };
-            this.requestUpdate();
-            console.log('[BGE Editor] Parsed config:', this._config);
-        }
-        catch (e) {
-            console.error('[BGE Editor] setConfig error:', e);
-            this._config = { type: 'custom:background-graph-entities', entities: [], color_thresholds: [] };
-        }
+        const entities = (config.entities || []).filter(Boolean).map((e) => (typeof e === 'string' ? { entity: e } : e));
+        this._config = {
+            ...config,
+            entities,
+            color_thresholds: config.color_thresholds || [],
+        };
+        this.requestUpdate();
     }
     connectedCallback() {
         super.connectedCallback();
-        document.addEventListener('click', this._handleOutsideClick);
+        document.addEventListener('mousedown', this._handleOutsideClick);
     }
     disconnectedCallback() {
         super.disconnectedCallback();
-        document.removeEventListener('click', this._handleOutsideClick);
+        document.removeEventListener('mousedown', this._handleOutsideClick);
     }
     _handleOutsideClick = (ev) => {
         if (!this._activeColorPicker) {
             return;
         }
         const path = ev.composedPath();
-        if (path.some((el) => el instanceof HTMLElement && el.dataset.pickerId === this._activeColorPicker)) {
-            // Click was inside the currently open picker's wrapper, so do nothing.
-            // The toggle handler will manage closing it if the trigger is clicked again.
+        // If the click was on any trigger or inside any popup, do nothing.
+        if (path.some((el) => el instanceof HTMLElement &&
+            (el.classList.contains('color-input-wrapper') || el.classList.contains('color-picker-popup')))) {
             return;
         }
-        // Click was outside, close the picker.
+        // Otherwise, the click was outside, so close the picker.
+        const popups = this.renderRoot.querySelectorAll('.color-picker-popup');
+        popups.forEach((p) => (p.style.display = 'none'));
         this._activeColorPicker = null;
     };
     _toggleColorPicker(ev, pickerId) {
-        this._activeColorPicker = this._activeColorPicker === pickerId ? null : pickerId;
+        ev.stopPropagation();
+        const targetPopup = this.renderRoot.querySelector(`.color-picker-popup[data-picker-id="${pickerId}"]`);
+        if (!targetPopup)
+            return;
+        const isVisible = targetPopup.style.display !== 'none';
+        // Hide all popups first
+        const allPopups = this.renderRoot.querySelectorAll('.color-picker-popup');
+        allPopups.forEach((p) => (p.style.display = 'none'));
+        // If the target was not visible, show it.
+        if (!isVisible) {
+            targetPopup.style.display = 'block';
+            this._activeColorPicker = pickerId;
+        }
+        else {
+            this._activeColorPicker = null;
+        }
+    }
+    _handleColorModeChange(ev) {
+        const newMode = ev.target.value;
+        const oldMode = (this._config.color_thresholds?.length ?? 0) > 0 ? 'threshold' : 'single';
+        if (newMode === oldMode || !this._config)
+            return;
+        const newConfig = { ...this._config };
+        if (newMode === 'threshold') {
+            if (!newConfig.color_thresholds || newConfig.color_thresholds.length === 0) {
+                newConfig.color_thresholds = [{ value: 0, color: '#000000' }];
+            }
+        }
+        else {
+            newConfig.color_thresholds = [];
+        }
+        this._config = newConfig;
+        fireEvent(this, 'config-changed', { config: newConfig });
     }
     _valueChanged(ev) {
         const target = ev.target;
@@ -4654,7 +4685,6 @@ let BackgroundGraphEntitiesEditor = class BackgroundGraphEntitiesEditor extends 
         };
         this._config = newConfig;
         fireEvent(this, 'config-changed', { config: newConfig });
-        this._activeColorPicker = null;
     }
     _thresholdChanged(ev, index) {
         if (!this._config)
@@ -4671,9 +4701,6 @@ let BackgroundGraphEntitiesEditor = class BackgroundGraphEntitiesEditor extends 
         const newConfig = { ...this._config, color_thresholds: newThresholds };
         this._config = newConfig;
         fireEvent(this, 'config-changed', { config: newConfig });
-        if (isColorPicker) {
-            this._activeColorPicker = null;
-        }
     }
     _addThreshold() {
         if (!this._config)
@@ -4762,10 +4789,10 @@ let BackgroundGraphEntitiesEditor = class BackgroundGraphEntitiesEditor extends 
         fireEvent(this, 'config-changed', { config: newConfig });
     }
     render() {
-        console.log('[BGE Editor] Rendering with config:', this._config);
         if (!this.hass || !this._config) {
             return x$1 `<div>Waiting for config…</div>`;
         }
+        const colorMode = (this._config.color_thresholds?.length ?? 0) > 0 ? 'threshold' : 'single';
         return x$1 `
       <div class="card-config">
         <h3>${localize(this.hass, 'component.bge.editor.general')}</h3>
@@ -4791,7 +4818,7 @@ let BackgroundGraphEntitiesEditor = class BackgroundGraphEntitiesEditor extends 
           <ha-textfield
             .label=${localize(this.hass, 'component.bge.editor.line_width')}
             type="number"
-            .value=${String(this._config.line_width ?? 5)}
+            .value=${String(this._config.line_width ?? 3)}
             .configValue=${'line_width'}
             @change=${this._valueChanged}
           ></ha-textfield>
@@ -4812,112 +4839,136 @@ let BackgroundGraphEntitiesEditor = class BackgroundGraphEntitiesEditor extends 
           </ha-select>
         </div>
 
-        <div class="side-by-side">
-          <div class="color-input-wrapper" data-picker-id="line_color">
-            <ha-textfield
-              .label=${localize(this.hass, 'component.bge.editor.line_color')}
-              .value=${this._config.line_color || 'rgba(255, 255, 255, 0.2)'}
-              .configValue=${'line_color'}
-              @change=${this._valueChanged}
-            >
-              <div
-                slot="trailingIcon"
-                class="color-preview"
-                style="background-color: ${this._config.line_color || 'transparent'}"
-                @click=${(e) => this._toggleColorPicker(e, 'line_color')}
-              ></div>
-            </ha-textfield>
-            ${this._activeColorPicker === 'line_color'
-            ? x$1 `
-                  <div class="color-picker-popup">
-                    <rgb-string-color-picker
-                      .color=${this._config.line_color || 'rgba(255, 255, 255, 0.2)'}
-                      .configValue=${'line_color'}
-                      @color-changed=${this._colorPicked}
-                      alpha
-                    ></rgb-string-color-picker>
-                  </div>
-                `
-            : ''}
+        <div class="opacity-slider-container">
+          <div class="label-container">
+            <span>${localize(this.hass, 'component.bge.editor.line_opacity')}</span>
+            <span>${Number(this._config.line_opacity ?? 0.2).toFixed(2)}</span>
           </div>
-          <ha-textfield
-            .label=${localize(this.hass, 'component.bge.editor.line_opacity')}
-            type="number"
-            .value=${String(this._config.line_opacity ?? 1)}
+          <ha-slider
+            min="0.1"
+            max="0.8"
+            step="0.05"
+            .value=${this._config.line_opacity ?? 0.2}
             .configValue=${'line_opacity'}
             @change=${this._valueChanged}
-            .step=${0.1}
-            .min=${0}
-            .max=${1}
-          ></ha-textfield>
+            pin
+          ></ha-slider>
         </div>
 
-        <h3>${localize(this.hass, 'component.bge.editor.color_thresholds')}</h3>
-        <div class="entities-container">
-          ${this._config.color_thresholds.map((threshold, index) => x$1 `
-              <div
-                class="entity-container threshold-container ${this._dropThresholdIndex === index
-            ? 'drag-over'
-            : ''} ${this._draggedThresholdIndex === index ? 'dragging' : ''}"
-                draggable="true"
-                @dragstart=${(e) => this._handleThresholdDragStart(e, index)}
-                @dragover=${(e) => this._handleThresholdDragOver(e, index)}
-                @dragleave=${() => (this._dropThresholdIndex = null)}
-                @drop=${this._handleThresholdDrop}
-                @dragend=${() => {
-            this._draggedThresholdIndex = null;
-            this._dropThresholdIndex = null;
-        }}
-              >
-                <div class="drag-handle">
-                  <ha-icon .icon=${'mdi:drag-vertical'}></ha-icon>
-                </div>
-                <div class="threshold-inputs">
-                  <ha-textfield
-                    .label=${localize(this.hass, 'component.bge.editor.value')}
-                    type="number"
-                    .value=${String(threshold.value)}
-                    data-field="value"
-                    @change=${(e) => this._thresholdChanged(e, index)}
-                  ></ha-textfield>
-                  <div class="color-input-wrapper" data-picker-id=${`threshold_${index}`}>
-                    <ha-textfield
-                      .label=${localize(this.hass, 'component.bge.editor.color')}
-                      .value=${threshold.color}
-                      data-field="color"
-                      data-index=${String(index)}
-                      @change=${(e) => this._thresholdChanged(e, index)}
-                    >
-                      <div
-                        slot="trailingIcon"
-                        class="color-preview"
-                        style="background-color: ${threshold.color}"
-                        @click=${(e) => this._toggleColorPicker(e, `threshold_${index}`)}
-                      ></div>
-                    </ha-textfield>
-                    ${this._activeColorPicker === `threshold_${index}`
-            ? x$1 ` <div class="color-picker-popup">
-                          <rgb-string-color-picker
-                            .color=${threshold.color}
-                            data-field="color"
-                            @color-changed=${(e) => this._thresholdChanged(e, index)}
-                            alpha
-                          ></rgb-string-color-picker>
-                        </div>`
-            : ''}
-                  </div>
-                </div>
-                <ha-icon-button
-                  class="remove-icon"
-                  .path=${'M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z'}
-                  @click=${() => this._removeThreshold(index)}
-                ></ha-icon-button>
-              </div>
-            `)}
+        <div class="side-by-side">
+          <ha-select
+            .label=${localize(this.hass, 'component.bge.editor.color_mode')}
+            .value=${colorMode}
+            @selected=${this._handleColorModeChange}
+            @closed=${(ev) => ev.stopPropagation()}
+          >
+            <mwc-list-item value="single"
+              >${localize(this.hass, 'component.bge.editor.color_mode_single')}</mwc-list-item
+            >
+            <mwc-list-item value="threshold"
+              >${localize(this.hass, 'component.bge.editor.color_mode_threshold')}</mwc-list-item
+            >
+          </ha-select>
         </div>
-        <ha-button @click=${this._addThreshold}>
-          ${localize(this.hass, 'component.bge.editor.add_threshold')}
-        </ha-button>
+
+        ${colorMode === 'single'
+            ? x$1 `
+              <div
+                class="color-input-wrapper"
+                data-picker-id="line_color"
+                @mousedown=${(e) => this._toggleColorPicker(e, 'line_color')}
+              >
+                <ha-textfield
+                  .label=${localize(this.hass, 'component.bge.editor.line_color')}
+                  .value=${this._config.line_color || 'rgba(255, 255, 255, 0.2)'}
+                  .configValue=${'line_color'}
+                  @change=${this._valueChanged}
+                ></ha-textfield>
+                <div class="color-preview" style="background-color: ${this._config.line_color || 'transparent'}"></div>
+                <div
+                  class="color-picker-popup"
+                  data-picker-id="line_color"
+                  @mousedown=${(e) => e.stopPropagation()}
+                >
+                  <rgb-string-color-picker
+                    .color=${this._config.line_color || 'rgba(255, 255, 255, 0.2)'}
+                    .configValue=${'line_color'}
+                    @color-changed=${this._colorPicked}
+                    alpha
+                  ></rgb-string-color-picker>
+                </div>
+              </div>
+            `
+            : x$1 `
+              <div>
+                <h3>${localize(this.hass, 'component.bge.editor.color_thresholds')}</h3>
+                <div class="entities-container">
+                  ${this._config.color_thresholds.map((threshold, index) => x$1 `
+                      <div
+                        class="entity-container threshold-container ${this._dropThresholdIndex === index
+                ? 'drag-over'
+                : ''} ${this._draggedThresholdIndex === index ? 'dragging' : ''}"
+                        draggable="true"
+                        @dragstart=${(e) => this._handleThresholdDragStart(e, index)}
+                        @dragover=${(e) => this._handleThresholdDragOver(e, index)}
+                        @dragleave=${() => (this._dropThresholdIndex = null)}
+                        @drop=${this._handleThresholdDrop}
+                        @dragend=${() => {
+                this._draggedThresholdIndex = null;
+                this._dropThresholdIndex = null;
+            }}
+                      >
+                        <div class="drag-handle">
+                          <ha-icon .icon=${'mdi:drag-vertical'}></ha-icon>
+                        </div>
+                        <div class="threshold-inputs">
+                          <ha-textfield
+                            .label=${localize(this.hass, 'component.bge.editor.value')}
+                            type="number"
+                            .value=${String(threshold.value)}
+                            data-field="value"
+                            @change=${(e) => this._thresholdChanged(e, index)}
+                          ></ha-textfield>
+                          <div
+                            class="color-input-wrapper"
+                            data-picker-id=${`threshold_${index}`}
+                            @mousedown=${(e) => this._toggleColorPicker(e, `threshold_${index}`)}
+                          >
+                            <ha-textfield
+                              .label=${localize(this.hass, 'component.bge.editor.color')}
+                              .value=${threshold.color}
+                              data-field="color"
+                              data-index=${String(index)}
+                              @change=${(e) => this._thresholdChanged(e, index)}
+                            ></ha-textfield>
+                            <div class="color-preview" style="background-color: ${threshold.color}"></div>
+                            <div
+                              class="color-picker-popup"
+                              data-picker-id=${`threshold_${index}`}
+                              @mousedown=${(e) => e.stopPropagation()}
+                            >
+                              <rgb-string-color-picker
+                                .color=${threshold.color}
+                                data-field="color"
+                                @color-changed=${(e) => this._thresholdChanged(e, index)}
+                                alpha
+                              ></rgb-string-color-picker>
+                            </div>
+                          </div>
+                        </div>
+                        <ha-icon-button
+                          class="remove-icon"
+                          .path=${'M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z'}
+                          @click=${() => this._removeThreshold(index)}
+                        ></ha-icon-button>
+                      </div>
+                    `)}
+                </div>
+                <ha-button @click=${this._addThreshold}>
+                  ${localize(this.hass, 'component.bge.editor.add_threshold')}
+                </ha-button>
+              </div>
+            `}
 
         <h3>${localize(this.hass, 'component.bge.editor.data_settings')}</h3>
         <div class="side-by-side">
@@ -4959,7 +5010,6 @@ let BackgroundGraphEntitiesEditor = class BackgroundGraphEntitiesEditor extends 
                   <div class="entity-main">
                     <ha-entity-picker
                       .hass=${this.hass}
-                      .label=${localize(this.hass, 'component.bge.editor.entity')}
                       .value=${entity.entity || ''}
                       data-index=${index}
                       data-field="entity"
@@ -4972,7 +5022,10 @@ let BackgroundGraphEntitiesEditor = class BackgroundGraphEntitiesEditor extends 
                       @click=${() => this._removeEntity(index)}
                     ></ha-icon-button>
                   </div>
-                  <ha-expansion-panel .header=${localize(this.hass, 'component.bge.editor.optional_overrides')}>
+                  <ha-expansion-panel
+                    .header=${localize(this.hass, 'component.bge.editor.optional_overrides')}
+                    outlined
+                  >
                     <div class="overrides">
                       <ha-textfield
                         .label=${localize(this.hass, 'component.bge.editor.name')}
@@ -4996,10 +5049,6 @@ let BackgroundGraphEntitiesEditor = class BackgroundGraphEntitiesEditor extends 
             `)}
         </div>
         <ha-button @click=${this._addEntity}> ${localize(this.hass, 'component.bge.editor.add_entity')} </ha-button>
-
-        <hr />
-        <pre><code>Debug:
-${JSON.stringify(this._config.entities, null, 2)}</code></pre>
       </div>
     `;
     }

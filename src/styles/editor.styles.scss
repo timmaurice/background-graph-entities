@@ -8,6 +8,11 @@
   gap: 16px;
 }
 
+.color-picker-popup {
+  display: none;
+  /* Hidden by default, controlled by JS */
+}
+
 .side-by-side {
   display: flex;
   gap: 16px;
@@ -24,32 +29,32 @@
 }
 
 .entity-container {
+  align-items: center;
   border: 1px solid var(--divider-color);
   border-radius: var(--ha-card-border-radius, 4px);
-  padding: 8px;
   display: flex;
-  align-items: center;
   gap: 8px;
+  padding: 8px;
   transition:
     border-color 0.2s ease-in-out,
     box-shadow 0.2s ease-in-out,
     background-color 0.2s ease-in-out;
 
   &.dragging {
-    opacity: 0.5;
     background: var(--secondary-background-color);
+    opacity: 0.5;
   }
 
   &.drag-over {
-    border-style: dashed;
     border-color: var(--primary-color);
+    border-style: dashed;
     box-shadow: 0 0 5px var(--primary-color);
   }
 }
 
 .drag-handle {
-  cursor: move;
   color: var(--secondary-text-color);
+  cursor: move;
 }
 
 .entity-content {
@@ -57,8 +62,8 @@
 }
 
 .entity-main {
-  display: flex;
   align-items: center;
+  display: flex;
   gap: 8px;
 }
 
@@ -72,7 +77,11 @@
 
 ha-expansion-panel {
   --expansion-panel-content-padding: 0;
-  padding-top: 8px;
+  margin-top: 8px;
+
+  &[outlined][expanded] {
+    --ha-card-background: var(--secondary-background-color);
+  }
 }
 
 .overrides {
@@ -85,21 +94,56 @@ ha-expansion-panel {
 pre {
   background: var(--secondary-background-color);
   border-radius: var(--ha-card-border-radius, 4px);
-  padding: 8px;
   font-size: 12px;
+  padding: 8px;
   white-space: pre-wrap;
   word-break: break-all;
 }
 
 .threshold-container {
-  display: flex;
   align-items: center;
+  display: flex;
   gap: 8px;
 
   .threshold-inputs {
+    align-items: flex-end;
     display: flex;
     flex-grow: 1;
     gap: 16px;
-    align-items: flex-end;
   }
+}
+
+.color-input-wrapper {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+
+  ha-textfield {
+    flex-grow: 1;
+  }
+}
+
+.color-preview {
+  border: 1px solid var(--divider-color);
+  border-radius: 4px;
+  box-sizing: border-box;
+  cursor: pointer;
+  flex-shrink: 0;
+  height: 28px;
+  width: 28px;
+}
+
+.opacity-slider-container {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+.label-container {
+  color: var(--secondary-text-color);
+  display: flex;
+  font-size: 12px;
+  justify-content: space-between;
+  margin-bottom: -8px; /* Pull slider up to align with textfield labels */
+  margin-left: 3px;
 }
