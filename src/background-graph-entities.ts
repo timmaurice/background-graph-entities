@@ -9,8 +9,8 @@ import {
   EntityConfig,
 } from './types.js';
 import { extent } from 'd3-array';
-import { scaleLinear, scaleTime } from 'd3-scale';
-import { select } from 'd3-selection';
+import { scaleLinear, scaleTime, ScaleLinear } from 'd3-scale';
+import { select, Selection } from 'd3-selection';
 import { line as d3Line, curveBasis } from 'd3-shape';
 import styles from './styles/card.styles.scss';
 
@@ -50,6 +50,7 @@ type LovelaceCardConstructor = {
 export class BackgroundGraphEntities extends LitElement implements LovelaceCard {
   @property({ attribute: false }) public hass!: HomeAssistant;
   @state() private _config!: BackgroundGraphEntitiesConfig;
+  @state() private _entities: EntityConfig[] = [];
   @state() private _history: Map<string, { timestamp: Date; value: number }[]> = new Map();
   @state() private _historyFetched = false;
   private _timerId?: number;
@@ -61,12 +62,11 @@ export class BackgroundGraphEntities extends LitElement implements LovelaceCard 
       throw new Error('You need to define at least one entity');
     }
 
-    this._config = {
-      ...config,
-      entities: config.entities.map((entityConf) =>
-        typeof entityConf === 'string' ? { entity: entityConf } : entityConf,
-      ),
-    };
+    this._config = config;
+    this._entities = config.entities.map((entityConf) =>
+      typeof entityConf === 'string' ? { entity: entityConf } : entityConf,
+    );
+
     // When config changes, we need to refetch history.
     this._historyFetched = false;
     this._history = new Map();
@@ -158,6 +158,41 @@ export class BackgroundGraphEntities extends LitElement implements LovelaceCard 
       }
     });
   }
+
+  private _setupGradient(
+    svg: Selection<SVGSVGElement, unknown, null, undefined>,
+    yScale: ScaleLinear<number, number>,
+    gradientId: string,
+  ): string {
+    const thresholds = this._config.color_thresholds;
+    if (!thresholds || thresholds.length === 0) {
+      return this._config?.line_color || 'rgba(255, 255, 255, 0.2)';
+    }
+
+    const thresholdDomain = extent(thresholds, (t) => t.value) as [number, number];
+    const gradient = svg
+      .append('defs')
+      .append('linearGradient')
+      .attr('id', gradientId)
+      .attr('gradientUnits', 'userSpaceOnUse')
+      .attr('x1', 0)
+      .attr('y1', yScale(thresholdDomain[0]))
+      .attr('x2', 0)
+      .attr('y2', yScale(thresholdDomain[1]));
+
+    const sortedThresholds = [...thresholds].sort((a, b) => a.value - b.value);
+    sortedThresholds.forEach((threshold) => {
+      const range = thresholdDomain[1] - thresholdDomain[0];
+      const offset = range > 0 ? (threshold.value - thresholdDomain[0]) / range : 0;
+      gradient
+        .append('stop')
+        .attr('offset', `${Math.max(0, Math.min(1, offset)) * 100}%`)
+        .attr('stop-color', threshold.color);
+    });
+
+    return `url(#${gradientId})`;
+  }
+
   public getCardSize(): number {
     return this._config?.entities.length ? this._config.entities.length + 1 : 1;
   }
@@ -255,39 +290,13 @@ export class BackgroundGraphEntities extends LitElement implements LovelaceCard 
       .attr('viewBox', `0 0 ${width} ${height}`)
       .attr('preserveAspectRatio', 'none');
 
-    const gradientId = `bge-gradient-${container.dataset.entityId}`;
-    const thresholds = this._config.color_thresholds;
-    let strokeColor = this._config?.line_color || 'rgba(255, 255, 255, 0.2)';
-
     if (yDomain[0] === yDomain[1]) {
       yDomain[0] -= 1;
       yDomain[1] += 1;
     }
 
-    if (thresholds && thresholds.length > 0) {
-      const thresholdDomain = extent(thresholds, (t) => t.value) as [number, number];
-      const gradient = svg
-        .append('defs')
-        .append('linearGradient')
-        .attr('id', gradientId)
-        .attr('gradientUnits', 'userSpaceOnUse')
-        .attr('x1', 0)
-        .attr('y1', yScale(thresholdDomain[0]))
-        .attr('x2', 0)
-        .attr('y2', yScale(thresholdDomain[1]));
-
-      strokeColor = `url(#${gradientId})`;
-
-      const sortedThresholds = [...thresholds].sort((a, b) => a.value - b.value);
-      sortedThresholds.forEach((threshold) => {
-        const range = thresholdDomain[1] - thresholdDomain[0];
-        const offset = range > 0 ? (threshold.value - thresholdDomain[0]) / range : 0;
-        gradient
-          .append('stop')
-          .attr('offset', `${Math.max(0, Math.min(1, offset)) * 100}%`)
-          .attr('stop-color', threshold.color);
-      });
-    }
+    const gradientId = `bge-gradient-${container.dataset.entityId}`;
+    const strokeColor = this._setupGradient(svg, yScale, gradientId);
 
     const lineGenerator = d3Line<{ timestamp: Date; value: number }>()
       .x((d) => xScale(d.timestamp))
@@ -301,21 +310,16 @@ export class BackgroundGraphEntities extends LitElement implements LovelaceCard 
       .attr('d', lineGenerator)
       .attr('stroke', strokeColor)
       .attr('stroke-opacity', this._config?.line_opacity ?? 0.2)
-      .attr('stroke-width', this._config?.line_width || 3)
-      .style('stroke-linecap', 'round')
-      .style('stroke-linejoin', 'round');
+      .attr('stroke-width', this._config?.line_width || 3);
   }
 
   private async _fetchAndStoreAllHistory(): Promise<void> {
-    if (!this._config?.entities) {
-      if (this._history.size > 0) {
-        this._history = new Map();
-      }
+    if (this._entities.length === 0) {
+      if (this._history.size > 0) this._history = new Map();
       return;
     }
-
     const newHistory = new Map<string, { timestamp: Date; value: number }[]>();
-    const historyPromises = (this._config.entities as EntityConfig[]).map(async (entityConf) => {
+    const historyPromises = this._entities.map(async (entityConf) => {
       const entityId = entityConf.entity;
       const history = await this._fetchHistory(entityId);
       if (history) {
@@ -327,6 +331,34 @@ export class BackgroundGraphEntities extends LitElement implements LovelaceCard 
     this._history = newHistory;
     this.requestUpdate('_history', oldHistory);
   }
+
+  private _downsampleHistory(
+    states: { timestamp: Date; value: number }[],
+    hours: number,
+    pointsPerHour: number,
+  ): { timestamp: Date; value: number }[] {
+    if (pointsPerHour <= 0 || states.length <= hours * pointsPerHour) {
+      return states;
+    }
+
+    const interval = (3600 * 1000) / pointsPerHour;
+    const grouped = new Map<number, { sum: number; count: number; lastTs: Date }>();
+
+    for (const state of states) {
+      const key = Math.floor(state.timestamp.getTime() / interval);
+      if (!grouped.has(key)) grouped.set(key, { sum: 0, count: 0, lastTs: state.timestamp });
+      const group = grouped.get(key)!;
+      group.sum += state.value;
+      group.count++;
+      group.lastTs = state.timestamp;
+    }
+
+    return Array.from(grouped.values()).map((group) => ({
+      timestamp: group.lastTs,
+      value: group.sum / group.count,
+    }));
+  }
+
   private async _fetchHistory(entityId: string): Promise<{ timestamp: Date; value: number }[] | null> {
     if (!this.hass?.callWS) return null;
 
@@ -371,27 +403,7 @@ export class BackgroundGraphEntities extends LitElement implements LovelaceCard 
 
       const finalStates = filteredStates.map(({ timestamp, value }) => ({ timestamp, value }));
 
-      // Downsample data if points_per_hour is set
-      if (pointsPerHour > 0 && finalStates.length > hoursToShow * pointsPerHour) {
-        const interval = (3600 * 1000) / pointsPerHour;
-        const grouped = new Map<number, { sum: number; count: number; lastTs: Date }>();
-
-        for (const state of finalStates) {
-          const key = Math.floor(state.timestamp.getTime() / interval);
-          if (!grouped.has(key)) grouped.set(key, { sum: 0, count: 0, lastTs: state.timestamp });
-          const group = grouped.get(key)!;
-          group.sum += state.value;
-          group.count++;
-          group.lastTs = state.timestamp;
-        }
-
-        return Array.from(grouped.values()).map((group) => ({
-          timestamp: group.lastTs,
-          value: group.sum / group.count,
-        }));
-      }
-
-      return finalStates;
+      return this._downsampleHistory(finalStates, hoursToShow, pointsPerHour);
     } catch (err) {
       console.error(`Error fetching history for ${entityId}:`, err);
       return null;
@@ -406,7 +418,7 @@ export class BackgroundGraphEntities extends LitElement implements LovelaceCard 
     return html`
       <ha-card .header=${this._config.title}>
         <div class="card-content ${this._config.line_length === 'short' ? 'short' : ''}">
-          ${(this._config.entities as EntityConfig[]).map((entity) => this._renderEntityRow(entity))}
+          ${this._entities.map((entity) => this._renderEntityRow(entity))}
         </div>
       </ha-card>
     `;
@@ -414,6 +426,10 @@ export class BackgroundGraphEntities extends LitElement implements LovelaceCard 
 
   static styles = css`
     ${unsafeCSS(styles)}
+    .graph-path {
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
   `;
 }
 

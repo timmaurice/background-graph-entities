@@ -3797,6 +3797,7 @@ console.info(`%c BACKGROUND-GRAPH-ENTITIES %c 1.0.0 `, 'color: orange; font-weig
 let BackgroundGraphEntities = class BackgroundGraphEntities extends i {
     hass;
     _config;
+    _entities = [];
     _history = new Map();
     _historyFetched = false;
     _timerId;
@@ -3805,10 +3806,8 @@ let BackgroundGraphEntities = class BackgroundGraphEntities extends i {
         if (!config || !config.entities || !Array.isArray(config.entities) || config.entities.length === 0) {
             throw new Error('You need to define at least one entity');
         }
-        this._config = {
-            ...config,
-            entities: config.entities.map((entityConf) => typeof entityConf === 'string' ? { entity: entityConf } : entityConf),
-        };
+        this._config = config;
+        this._entities = config.entities.map((entityConf) => typeof entityConf === 'string' ? { entity: entityConf } : entityConf);
         // When config changes, we need to refetch history.
         this._historyFetched = false;
         this._history = new Map();
@@ -3891,6 +3890,32 @@ let BackgroundGraphEntities = class BackgroundGraphEntities extends i {
                 this._renderD3Graph(container, history);
             }
         });
+    }
+    _setupGradient(svg, yScale, gradientId) {
+        const thresholds = this._config.color_thresholds;
+        if (!thresholds || thresholds.length === 0) {
+            return this._config?.line_color || 'rgba(255, 255, 255, 0.2)';
+        }
+        const thresholdDomain = extent(thresholds, (t) => t.value);
+        const gradient = svg
+            .append('defs')
+            .append('linearGradient')
+            .attr('id', gradientId)
+            .attr('gradientUnits', 'userSpaceOnUse')
+            .attr('x1', 0)
+            .attr('y1', yScale(thresholdDomain[0]))
+            .attr('x2', 0)
+            .attr('y2', yScale(thresholdDomain[1]));
+        const sortedThresholds = [...thresholds].sort((a, b) => a.value - b.value);
+        sortedThresholds.forEach((threshold) => {
+            const range = thresholdDomain[1] - thresholdDomain[0];
+            const offset = range > 0 ? (threshold.value - thresholdDomain[0]) / range : 0;
+            gradient
+                .append('stop')
+                .attr('offset', `${Math.max(0, Math.min(1, offset)) * 100}%`)
+                .attr('stop-color', threshold.color);
+        });
+        return `url(#${gradientId})`;
     }
     getCardSize() {
         return this._config?.entities.length ? this._config.entities.length + 1 : 1;
@@ -3975,35 +4000,12 @@ let BackgroundGraphEntities = class BackgroundGraphEntities extends i {
             .append('svg')
             .attr('viewBox', `0 0 ${width} ${height}`)
             .attr('preserveAspectRatio', 'none');
-        const gradientId = `bge-gradient-${container.dataset.entityId}`;
-        const thresholds = this._config.color_thresholds;
-        let strokeColor = this._config?.line_color || 'rgba(255, 255, 255, 0.2)';
         if (yDomain[0] === yDomain[1]) {
             yDomain[0] -= 1;
             yDomain[1] += 1;
         }
-        if (thresholds && thresholds.length > 0) {
-            const thresholdDomain = extent(thresholds, (t) => t.value);
-            const gradient = svg
-                .append('defs')
-                .append('linearGradient')
-                .attr('id', gradientId)
-                .attr('gradientUnits', 'userSpaceOnUse')
-                .attr('x1', 0)
-                .attr('y1', yScale(thresholdDomain[0]))
-                .attr('x2', 0)
-                .attr('y2', yScale(thresholdDomain[1]));
-            strokeColor = `url(#${gradientId})`;
-            const sortedThresholds = [...thresholds].sort((a, b) => a.value - b.value);
-            sortedThresholds.forEach((threshold) => {
-                const range = thresholdDomain[1] - thresholdDomain[0];
-                const offset = range > 0 ? (threshold.value - thresholdDomain[0]) / range : 0;
-                gradient
-                    .append('stop')
-                    .attr('offset', `${Math.max(0, Math.min(1, offset)) * 100}%`)
-                    .attr('stop-color', threshold.color);
-            });
-        }
+        const gradientId = `bge-gradient-${container.dataset.entityId}`;
+        const strokeColor = this._setupGradient(svg, yScale, gradientId);
         const lineGenerator = d3Line()
             .x((d) => xScale(d.timestamp))
             .y((d) => yScale(d.value))
@@ -4015,19 +4017,16 @@ let BackgroundGraphEntities = class BackgroundGraphEntities extends i {
             .attr('d', lineGenerator)
             .attr('stroke', strokeColor)
             .attr('stroke-opacity', this._config?.line_opacity ?? 0.2)
-            .attr('stroke-width', this._config?.line_width || 3)
-            .style('stroke-linecap', 'round')
-            .style('stroke-linejoin', 'round');
+            .attr('stroke-width', this._config?.line_width || 3);
     }
     async _fetchAndStoreAllHistory() {
-        if (!this._config?.entities) {
-            if (this._history.size > 0) {
+        if (this._entities.length === 0) {
+            if (this._history.size > 0)
                 this._history = new Map();
-            }
             return;
         }
         const newHistory = new Map();
-        const historyPromises = this._config.entities.map(async (entityConf) => {
+        const historyPromises = this._entities.map(async (entityConf) => {
             const entityId = entityConf.entity;
             const history = await this._fetchHistory(entityId);
             if (history) {
@@ -4038,6 +4037,26 @@ let BackgroundGraphEntities = class BackgroundGraphEntities extends i {
         await Promise.all(historyPromises);
         this._history = newHistory;
         this.requestUpdate('_history', oldHistory);
+    }
+    _downsampleHistory(states, hours, pointsPerHour) {
+        if (pointsPerHour <= 0 || states.length <= hours * pointsPerHour) {
+            return states;
+        }
+        const interval = (3600 * 1000) / pointsPerHour;
+        const grouped = new Map();
+        for (const state of states) {
+            const key = Math.floor(state.timestamp.getTime() / interval);
+            if (!grouped.has(key))
+                grouped.set(key, { sum: 0, count: 0, lastTs: state.timestamp });
+            const group = grouped.get(key);
+            group.sum += state.value;
+            group.count++;
+            group.lastTs = state.timestamp;
+        }
+        return Array.from(grouped.values()).map((group) => ({
+            timestamp: group.lastTs,
+            value: group.sum / group.count,
+        }));
     }
     async _fetchHistory(entityId) {
         if (!this.hass?.callWS)
@@ -4076,25 +4095,7 @@ let BackgroundGraphEntities = class BackgroundGraphEntities extends i {
             });
             const filteredStates = processedStates.filter((s) => !isNaN(s.value));
             const finalStates = filteredStates.map(({ timestamp, value }) => ({ timestamp, value }));
-            // Downsample data if points_per_hour is set
-            if (pointsPerHour > 0 && finalStates.length > hoursToShow * pointsPerHour) {
-                const interval = (3600 * 1000) / pointsPerHour;
-                const grouped = new Map();
-                for (const state of finalStates) {
-                    const key = Math.floor(state.timestamp.getTime() / interval);
-                    if (!grouped.has(key))
-                        grouped.set(key, { sum: 0, count: 0, lastTs: state.timestamp });
-                    const group = grouped.get(key);
-                    group.sum += state.value;
-                    group.count++;
-                    group.lastTs = state.timestamp;
-                }
-                return Array.from(grouped.values()).map((group) => ({
-                    timestamp: group.lastTs,
-                    value: group.sum / group.count,
-                }));
-            }
-            return finalStates;
+            return this._downsampleHistory(finalStates, hoursToShow, pointsPerHour);
         }
         catch (err) {
             console.error(`Error fetching history for ${entityId}:`, err);
@@ -4108,13 +4109,17 @@ let BackgroundGraphEntities = class BackgroundGraphEntities extends i {
         return x$1 `
       <ha-card .header=${this._config.title}>
         <div class="card-content ${this._config.line_length === 'short' ? 'short' : ''}">
-          ${this._config.entities.map((entity) => this._renderEntityRow(entity))}
+          ${this._entities.map((entity) => this._renderEntityRow(entity))}
         </div>
       </ha-card>
     `;
     }
     static styles = i$3 `
     ${r$4(styles$1)}
+    .graph-path {
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
   `;
 };
 __decorate([
@@ -4123,6 +4128,9 @@ __decorate([
 __decorate([
     r()
 ], BackgroundGraphEntities.prototype, "_config", void 0);
+__decorate([
+    r()
+], BackgroundGraphEntities.prototype, "_entities", void 0);
 __decorate([
     r()
 ], BackgroundGraphEntities.prototype, "_history", void 0);
