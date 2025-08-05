@@ -11,14 +11,29 @@
 
 The `background-graph-entities` custom component for Home Assistant displays a list of entities with their current state and a mini graph showing the entity's history. This component is ideal for monitoring various sensor data, such as temperature, humidity, or other metrics.
 
-![Screenshot of the Background Graph Entities Custom Component](https://raw.githubusercontent.com/timmaurice/lovelace-background-graph-entities/refs/heads/main/image.png)
+<p align="center">
+  <img src="https://raw.githubusercontent.com/timmaurice/lovelace-background-graph-entities/main/image.png" alt="Card Screenshot" width="260">
+  <img src="https://raw.githubusercontent.com/timmaurice/lovelace-background-graph-entities/main/image-entity.png" alt="Entity Editor Screenshot" width="260">
+  <img src="https://raw.githubusercontent.com/timmaurice/lovelace-background-graph-entities/main/image-color-thresholds.png" alt="Color Thresholds Editor Screenshot" width="260">
+</p>
 
 ## Features
 
-- Displays current state and mini graph for each entity
-- Supports custom icons for each entity
-- Click on an entity to open the detailed info popup
-- Configurable graph settings for each entity
+- **Dynamic Background Graphs:** Each entity row features a beautiful, live-updating graph of its history as a background.
+- **Highly Customizable:**
+  - **Global & Per-Entity Styling:** Configure graph appearance globally or override settings for each entity individually.
+  - **Dynamic Line Colors:** Use a single color or define value-based thresholds to create stunning color gradients.
+  - **Adjustable Graph Appearance:** Control line width and opacity to match your dashboard's theme.
+- **Powerful UI Editor:** A user-friendly editor makes configuration a breeze.
+  - **Drag & Drop:** Easily reorder entities and color thresholds.
+  - **Live Previews:** See your changes instantly.
+  - **Color Pickers:** Choose colors with ease.
+- **Performance-Tuned:**
+  - **Data Downsampling:** Configure `points_per_hour` to show smooth graphs over long periods without slowing down your browser.
+  - **Configurable Update Interval:** Control how often data is fetched.
+- **User-Friendly:**
+  - **Clickable Entities:** Tap any entity to open its "More Info" dialog.
+  - **Smart Formatting:** Automatically formats time-based sensors (e.g., travel time) into a human-readable format.
 
 ## Installation
 
