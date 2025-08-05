@@ -1,13 +1,6 @@
 {
   "name": "Background Graph Entities",
   "content_in_root": false,
-  "filename": "dist/background-graph-entities.js",
   "render_readme": true,
-  "domains": ["lovelace"],
-  "codeowners": ["@timmaurice"],
-  "version": "1.0.0",
-  "homeassistant": "2023.4.0",
-  "documentation": "https://github.com/timmaurice/lovelace-background-graph-entities",
-  "issue_tracker": "https://github.com/timmaurice/lovelace-background-graph-entities/issues",
-  "keywords": ["lovelace", "ui", "graph", "entities", "background", "visualization"]
+  "filename": "dist/background-graph-entities.js"
 }
