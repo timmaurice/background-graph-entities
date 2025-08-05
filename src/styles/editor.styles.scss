@@ -1,0 +1,157 @@
+@use './color-picker';
+
+@include color-picker.color-picker-styles;
+
+.card-config {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.color-picker-popup {
+  display: none;
+  /* Hidden by default, controlled by JS */
+}
+
+.side-by-side {
+  display: flex;
+  gap: 16px;
+}
+
+.side-by-side > * {
+  flex: 1;
+}
+
+.entities-container {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.entity-container {
+  align-items: center;
+  border: 1px solid var(--divider-color);
+  border-radius: var(--ha-card-border-radius, 4px);
+  display: flex;
+  gap: 8px;
+  padding: 8px;
+  transition:
+    border-color 0.2s ease-in-out,
+    box-shadow 0.2s ease-in-out,
+    background-color 0.2s ease-in-out;
+
+  &.dragging {
+    background: var(--secondary-background-color);
+    opacity: 0.5;
+  }
+
+  &.drag-over {
+    border-color: var(--primary-color);
+    border-style: dashed;
+    box-shadow: 0 0 5px var(--primary-color);
+  }
+}
+
+.drag-handle {
+  color: var(--secondary-text-color);
+  cursor: move;
+}
+
+.entity-content {
+  flex-grow: 1;
+}
+
+.entity-main {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+}
+
+.entity-main ha-entity-picker {
+  flex-grow: 1;
+}
+
+ha-expansion-panel {
+  --expansion-panel-content-padding: 0;
+  margin-top: 8px;
+
+  &[outlined][expanded] {
+    --ha-card-background: var(--secondary-background-color);
+  }
+}
+
+.overrides {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px;
+}
+
+pre {
+  background: var(--secondary-background-color);
+  border-radius: var(--ha-card-border-radius, 4px);
+  font-size: 12px;
+  padding: 8px;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.threshold-container {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+
+  .threshold-inputs {
+    align-items: flex-end;
+    display: flex;
+    flex-grow: 1;
+    gap: 16px;
+  }
+}
+
+.color-input-wrapper {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+
+  ha-textfield {
+    flex-grow: 1;
+  }
+}
+
+.color-preview {
+  border: 1px solid var(--divider-color);
+  border-radius: 4px;
+  box-sizing: border-box;
+  cursor: pointer;
+  flex-shrink: 0;
+  height: 28px;
+  width: 28px;
+}
+
+.opacity-slider-container {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+.label-container {
+  color: var(--secondary-text-color);
+  display: flex;
+  font-size: 12px;
+  justify-content: space-between;
+  margin-bottom: -8px;
+  margin-left: 3px;
+}
+
+.header {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+
+  .title {
+    font-size: 1.2em;
+    font-weight: 500;
+  }
+}

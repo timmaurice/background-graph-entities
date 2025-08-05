@@ -1,0 +1,30 @@
+{
+  "editor": {
+    "general": "Allgemein",
+    "title": "Titel (Optional)",
+    "graph_appearance": "Graph-Darstellung",
+    "hours_to_show": "Stunden zum Anzeigen",
+    "line_width": "Linienbreite",
+    "line_length": "Linienlänge",
+    "line_length_long": "Lang",
+    "line_length_short": "Kurz",
+    "line_color": "Linienfarbe",
+    "line_opacity": "Linienopazität",
+    "color_mode": "Farbmodus",
+    "color_mode_single": "Einzelfarbe",
+    "color_mode_threshold": "Schwellenwerte",
+    "color_thresholds": "Farbschwellenwerte",
+    "add_threshold": "Schwellenwert hinzufügen",
+    "value": "Wert",
+    "color": "Farbe",
+    "data_settings": "Dateneinstellungen",
+    "points_per_hour": "Punkte pro Stunde",
+    "update_interval": "Aktualisierungsintervall (Sekunden)",
+    "entities": "Entitäten",
+    "entity": "Entität",
+    "add_entity": "Entität hinzufügen",
+    "optional_overrides": "Optionale Überschreibungen",
+    "name": "Name",
+    "icon": "Icon"
+  }
+}
