@@ -166,7 +166,8 @@ export class BackgroundGraphEntities extends LitElement implements LovelaceCard 
   ): string {
     const thresholds = this._config.color_thresholds;
     if (!thresholds || thresholds.length === 0) {
-      return this._config?.line_color || 'rgba(255, 255, 255, 0.2)';
+      const isDarkMode = this.hass.themes?.darkMode ?? false;
+      return this._config?.line_color || (isDarkMode ? 'white' : 'black');
     }
 
     const thresholdDomain = extent(thresholds, (t) => t.value) as [number, number];

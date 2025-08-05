@@ -3789,7 +3789,7 @@ function curveBasis(context) {
   return new Basis(context);
 }
 
-const styles$1 = i$3`.card-content{padding:16px}.card-content.short .graph-container{right:70px}.entity-row{align-items:center;cursor:pointer;display:flex;height:40px;margin-bottom:8px;position:relative}.entity-row:last-of-type{margin-bottom:0}.entity-icon{color:var(--paper-item-icon-color, #44739e);fill:currentColor;margin-right:8px;text-align:center;width:40px}.entity-name{z-index:1}.entity-value{color:var(--primary-text-color);margin-left:auto;z-index:1}.graph-container{position:absolute;bottom:0;left:45px;pointer-events:none;right:0;top:0}.graph-container svg{width:100%;height:100%}.graph-path{fill:none}`;
+const styles$1 = i$3`.card-content{padding:16px}.card-content.short .graph-container{right:70px}.entity-row{align-items:center;cursor:pointer;display:flex;height:40px;margin-bottom:8px;position:relative}.entity-row:last-of-type{margin-bottom:0}.entity-icon{color:var(--primary-text-color);fill:currentColor;margin-right:8px;text-align:center;width:40px}.entity-name{z-index:1}.entity-value{color:var(--primary-text-color);margin-left:auto;z-index:1}.graph-container{position:absolute;bottom:0;left:45px;pointer-events:none;right:0;top:0}.graph-container svg{width:100%;height:100%}.graph-path{fill:none}`;
 
 // Define the custom element name
 const ELEMENT_NAME = 'background-graph-entities';
@@ -3894,7 +3894,8 @@ let BackgroundGraphEntities = class BackgroundGraphEntities extends i {
     _setupGradient(svg, yScale, gradientId) {
         const thresholds = this._config.color_thresholds;
         if (!thresholds || thresholds.length === 0) {
-            return this._config?.line_color || 'rgba(255, 255, 255, 0.2)';
+            const isDarkMode = this.hass.themes?.darkMode ?? false;
+            return this._config?.line_color || (isDarkMode ? 'white' : 'black');
         }
         const thresholdDomain = extent(thresholds, (t) => t.value);
         const gradient = svg
@@ -4801,6 +4802,8 @@ let BackgroundGraphEntitiesEditor = class BackgroundGraphEntitiesEditor extends 
             return x$1 `<div>Waiting for config…</div>`;
         }
         const colorMode = (this._config.color_thresholds?.length ?? 0) > 0 ? 'threshold' : 'single';
+        const isDarkMode = this.hass.themes?.darkMode ?? false;
+        const defaultLineColor = isDarkMode ? 'white' : 'black';
         return x$1 `
       <div class="card-config">
         <h3>${localize(this.hass, 'component.bge.editor.general')}</h3>
@@ -4888,18 +4891,21 @@ let BackgroundGraphEntitiesEditor = class BackgroundGraphEntitiesEditor extends 
               >
                 <ha-textfield
                   .label=${localize(this.hass, 'component.bge.editor.line_color')}
-                  .value=${this._config.line_color || 'rgba(255, 255, 255, 0.2)'}
+                  .value=${this._config.line_color || defaultLineColor}
                   .configValue=${'line_color'}
                   @change=${this._valueChanged}
                 ></ha-textfield>
-                <div class="color-preview" style="background-color: ${this._config.line_color || 'transparent'}"></div>
+                <div
+                  class="color-preview"
+                  style="background-color: ${this._config.line_color || defaultLineColor}"
+                ></div>
                 <div
                   class="color-picker-popup"
                   data-picker-id="line_color"
                   @mousedown=${(e) => e.stopPropagation()}
                 >
                   <rgb-string-color-picker
-                    .color=${this._config.line_color || 'rgba(255, 255, 255, 0.2)'}
+                    .color=${this._config.line_color || defaultLineColor}
                     .configValue=${'line_color'}
                     @color-changed=${this._colorPicked}
                     alpha

@@ -312,6 +312,8 @@ export class BackgroundGraphEntitiesEditor extends LitElement implements Lovelac
     }
 
     const colorMode = (this._config.color_thresholds?.length ?? 0) > 0 ? 'threshold' : 'single';
+    const isDarkMode = this.hass.themes?.darkMode ?? false;
+    const defaultLineColor = isDarkMode ? 'white' : 'black';
 
     return html`
       <div class="card-config">
@@ -400,18 +402,21 @@ export class BackgroundGraphEntitiesEditor extends LitElement implements Lovelac
               >
                 <ha-textfield
                   .label=${localize(this.hass, 'component.bge.editor.line_color')}
-                  .value=${this._config.line_color || 'rgba(255, 255, 255, 0.2)'}
+                  .value=${this._config.line_color || defaultLineColor}
                   .configValue=${'line_color'}
                   @change=${this._valueChanged}
                 ></ha-textfield>
-                <div class="color-preview" style="background-color: ${this._config.line_color || 'transparent'}"></div>
+                <div
+                  class="color-preview"
+                  style="background-color: ${this._config.line_color || defaultLineColor}"
+                ></div>
                 <div
                   class="color-picker-popup"
                   data-picker-id="line_color"
                   @mousedown=${(e: MouseEvent) => e.stopPropagation()}
                 >
                   <rgb-string-color-picker
-                    .color=${this._config.line_color || 'rgba(255, 255, 255, 0.2)'}
+                    .color=${this._config.line_color || defaultLineColor}
                     .configValue=${'line_color'}
                     @color-changed=${this._colorPicked}
                     alpha

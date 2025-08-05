@@ -4,6 +4,10 @@ export interface HomeAssistant {
   localize: (key: string, ...args: unknown[]) => string;
   language: string;
   callWS: <T>(message: { type: string; [key: string]: unknown }) => Promise<T>;
+  themes?: {
+    darkMode?: boolean;
+    [key: string]: unknown;
+  };
   // You can expand this with more properties from the hass object if needed
 }
 

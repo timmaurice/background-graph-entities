@@ -1,8 +1,11 @@
 # Background Graph Entities Custom Component
 
-[![hacs_badge](https://img.shields.io/badge/HACS-Default-41BDF5.svg?style=for-the-badge)](https://github.com/timmaurice/lovelace-background-graph-entities)
-![GitHub release (latest by date)](https://img.shields.io/github/downloads/timmaurice/lovelace-background-graph-entities/total?style=for-the-badge)
-![Release](https://img.shields.io/github/v/release/timmaurice/lovelace-background-graph-entities?style=for-the-badge)
+[![hacs_badge](https://img.shields.io/badge/HACS-Custom-41BDF5.svg?style=flat-square)](https://github.com/hacs/integration)
+![GitHub release (latest by date)](https://img.shields.io/github/v/release/timmaurice/lovelace-background-graph-entities?style=flat-square)
+[![GH-downloads](https://img.shields.io/github/downloads/timmaurice/lovelace-background-graph-entities/total?style=flat-square)](https://github.com/timmaurice/lovelace-background-graph-entities/releases)
+[![GH-last-commit](https://img.shields.io/github/last-commit/timmaurice/lovelace-background-graph-entities.svg?style=flat-square)](https://github.com/timmaurice/lovelace-background-graph-entities/commits/master)
+[![GH-code-size](https://img.shields.io/github/languages/code-size/timmaurice/lovelace-background-graph-entities.svg?color=red&style=flat-square)](https://github.com/timmaurice/lovelace-background-graph-entities)
+![GitHub](https://img.shields.io/github/license/timmaurice/lovelace-background-graph-entities?style=flat-square)
 
 ## Overview
 
@@ -50,8 +53,8 @@ entities:
   - **icon** (optional): The icon for the entity. Can be overwritten with [material design icons](https://pictogrammers.com/library/mdi/)<br>e.g.: `mdi:alert`
 - **hoursToShow** (optional): Number of hours to show in the mini graph. Defaults to 24.
 - **title** (optional): A title for the card.
-- **line_length** (optional): Length of the line in the mini graph. Default is "long" the other option is "short".
-- **line_color** (optional): Color of the line in the mini graph. Default is `rgba(255, 255, 255, 0.2)`.
+- **line_length** (optional): Length of the line in the mini graph. Default is `long` the other option is `short`.
+- **line_color** (optional): Color of the line in the mini graph. Defaults to `white` in dark mode and `black` in light mode.
 - **line_opacity** (optional): Opacity of the mini graph line. The editor provides a slider from 0.1 to 0.8. Default is `0.2`.
 - **line_width** (optional): Width of the line in the mini graph in pixels. Default is `3`.
 - **color_thresholds** (optional): A list of color thresholds for the graph line. This will create a gradient. If used, `line_color` is ignored.
@@ -81,7 +84,6 @@ title: Travel Times
 entities:
   - entity: sensor.travel_time_to_nyc
     name: New York City
-    line_opacity: 0.3
   - entity: sensor.temperature_sensor_average_inside
     name: Temperature Average Inside
     icon: mdi:home-thermometer
