@@ -49,6 +49,9 @@ export interface EntityConfig {
   entity: string;
   name?: string;
   icon?: string;
+  overwrite_graph_appearance?: boolean;
+  line_color?: string;
+  line_opacity?: number;
   color_thresholds?: ColorThreshold[];
 }
 

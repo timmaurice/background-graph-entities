@@ -3845,7 +3845,6 @@ let BackgroundGraphEntities = class BackgroundGraphEntities extends i {
         const entitiesCard = await helpers.createCardElement({ type: 'entities', entities: [] });
         await entitiesCard.constructor.getConfigElement();
         await Promise.resolve().then(function () { return editor; });
-        console.log('[BGE] getConfigElement called, creating editor element.');
         return document.createElement('background-graph-entities-editor');
     }
     static getStubConfig() {
@@ -3859,10 +3858,9 @@ let BackgroundGraphEntities = class BackgroundGraphEntities extends i {
             this._historyFetched = true; // Prevent re-fetching on every subsequent update
             this._fetchAndStoreAllHistory();
         }
-        // The D3 rendering should happen after an update when history is available.
-        if (changedProperties.has('_history')) {
-            // Defer rendering to the next frame to ensure the DOM is fully updated and
-            // the containers are available to be queried.
+        // Rerender on history change or on any hass update to keep the time axis current.
+        if (changedProperties.has('_history') || (changedProperties.has('hass') && this._historyFetched)) {
+            // Defer rendering to the next frame to ensure the DOM is fully updated.
             requestAnimationFrame(() => this._renderAllGraphs());
         }
     }
@@ -3873,12 +3871,8 @@ let BackgroundGraphEntities = class BackgroundGraphEntities extends i {
         const MAX_RETRIES = 10;
         const containers = this.renderRoot.querySelectorAll('.graph-container');
         if (containers.length === 0) {
-            if (retryCount < MAX_RETRIES) {
+            if (retryCount < MAX_RETRIES)
                 requestAnimationFrame(() => this._renderAllGraphs(retryCount + 1));
-            }
-            else {
-                console.warn(`[BGE] _renderAllGraphs: Could not find graph containers after ${MAX_RETRIES} retries.`);
-            }
             return;
         }
         if (!this._config?.entities)
@@ -3886,17 +3880,13 @@ let BackgroundGraphEntities = class BackgroundGraphEntities extends i {
         containers.forEach((container) => {
             const entityId = container.dataset.entityId;
             if (entityId) {
+                const entityConfig = this._entities.find((e) => e.entity === entityId);
                 const history = this._history.get(entityId);
-                this._renderD3Graph(container, history);
+                this._renderD3Graph(container, history, entityConfig);
             }
         });
     }
-    _setupGradient(svg, yScale, gradientId) {
-        const thresholds = this._config.color_thresholds;
-        if (!thresholds || thresholds.length === 0) {
-            const isDarkMode = this.hass.themes?.darkMode ?? false;
-            return this._config?.line_color || (isDarkMode ? 'white' : 'black');
-        }
+    _createGradient(svg, yScale, gradientId, thresholds) {
         const thresholdDomain = extent(thresholds, (t) => t.value);
         const gradient = svg
             .append('defs')
@@ -3917,6 +3907,26 @@ let BackgroundGraphEntities = class BackgroundGraphEntities extends i {
                 .attr('stop-color', threshold.color);
         });
         return `url(#${gradientId})`;
+    }
+    _setupGradient(svg, yScale, gradientId, entityConfig) {
+        const isDarkMode = this.hass.themes?.darkMode ?? false;
+        const defaultColor = isDarkMode ? 'white' : 'black';
+        // Check for entity-specific appearance override first
+        if (entityConfig?.overwrite_graph_appearance) {
+            const entityThresholds = entityConfig.color_thresholds;
+            if (entityThresholds && entityThresholds.length > 0) {
+                return this._createGradient(svg, yScale, gradientId, entityThresholds);
+            }
+            // If no entity thresholds, use entity line color, or fall back to global, then default.
+            return entityConfig.line_color ?? this._config.line_color ?? defaultColor;
+        }
+        // If no entity override, use global settings
+        const globalThresholds = this._config.color_thresholds;
+        if (globalThresholds && globalThresholds.length > 0) {
+            return this._createGradient(svg, yScale, gradientId, globalThresholds);
+        }
+        // Fallback to global line color, then default.
+        return this._config.line_color ?? defaultColor;
     }
     getCardSize() {
         return this._config?.entities.length ? this._config.entities.length + 1 : 1;
@@ -3966,18 +3976,14 @@ let BackgroundGraphEntities = class BackgroundGraphEntities extends i {
       </div>
     `;
     }
-    _renderD3Graph(container, history) {
+    _renderD3Graph(container, history, entityConfig) {
         const MAX_RETRIES = 10;
         const retryCount = this._renderRetryMap.get(container) || 0;
         if (!container.isConnected || container.clientWidth === 0 || container.clientHeight === 0) {
             if (retryCount < MAX_RETRIES) {
                 this._renderRetryMap.set(container, retryCount + 1);
                 // If container is not ready, retry shortly.
-                requestAnimationFrame(() => this._renderD3Graph(container, history));
-            }
-            else {
-                console.warn(`[BGE] _renderD3Graph: Could not render graph for ${container.dataset.entityId} after ${MAX_RETRIES} retries. The container might not be visible.`);
-                this._renderRetryMap.delete(container); // Reset for next time
+                requestAnimationFrame(() => this._renderD3Graph(container, history, entityConfig));
             }
             return;
         }
@@ -3985,13 +3991,34 @@ let BackgroundGraphEntities = class BackgroundGraphEntities extends i {
         this._renderRetryMap.delete(container);
         // Clear any previous graph
         select(container).html('');
-        if (!history || history.length < 2) {
+        if (!history || history.length === 0) {
             return;
         }
         const width = container.clientWidth;
         const height = container.clientHeight;
-        const xDomain = extent(history, (d) => d.timestamp);
-        const yDomain = extent(history, (d) => d.value);
+        const hoursToShow = this._config?.hours_to_show || 24;
+        const end = new Date();
+        const start = new Date();
+        start.setHours(end.getHours() - hoursToShow);
+        const xDomain = [start, end];
+        // Clone history to avoid mutating the state, and add a point at the end
+        // to extend the graph to the current time.
+        const processedHistory = [...history];
+        const lastHistory = processedHistory[processedHistory.length - 1];
+        if (lastHistory) {
+            processedHistory.push({
+                timestamp: end,
+                value: lastHistory.value,
+            });
+        }
+        if (processedHistory.length < 2) {
+            return; // Not enough points to draw a line
+        }
+        const yDomain = extent(processedHistory, (d) => d.value);
+        if (yDomain[0] === yDomain[1]) {
+            yDomain[0] -= 1;
+            yDomain[1] += 1;
+        }
         const yPadding = (yDomain[1] - yDomain[0]) * 0.1;
         yDomain[0] -= yPadding;
         yDomain[1] += yPadding;
@@ -4001,23 +4028,21 @@ let BackgroundGraphEntities = class BackgroundGraphEntities extends i {
             .append('svg')
             .attr('viewBox', `0 0 ${width} ${height}`)
             .attr('preserveAspectRatio', 'none');
-        if (yDomain[0] === yDomain[1]) {
-            yDomain[0] -= 1;
-            yDomain[1] += 1;
-        }
         const gradientId = `bge-gradient-${container.dataset.entityId}`;
-        const strokeColor = this._setupGradient(svg, yScale, gradientId);
+        const strokeColor = this._setupGradient(svg, yScale, gradientId, entityConfig);
         const lineGenerator = d3Line()
             .x((d) => xScale(d.timestamp))
             .y((d) => yScale(d.value))
             .curve(curveBasis);
         svg
             .append('path')
-            .datum(history)
+            .datum(processedHistory)
             .attr('class', 'graph-path')
             .attr('d', lineGenerator)
             .attr('stroke', strokeColor)
-            .attr('stroke-opacity', this._config?.line_opacity ?? 0.2)
+            .attr('stroke-opacity', entityConfig?.overwrite_graph_appearance && entityConfig.line_opacity !== undefined
+            ? entityConfig.line_opacity
+            : (this._config?.line_opacity ?? 0.2))
             .attr('stroke-width', this._config?.line_width || 3);
     }
     async _fetchAndStoreAllHistory() {
@@ -4027,7 +4052,9 @@ let BackgroundGraphEntities = class BackgroundGraphEntities extends i {
             return;
         }
         const newHistory = new Map();
-        const historyPromises = this._entities.map(async (entityConf) => {
+        const historyPromises = this._entities
+            .filter((entityConf) => entityConf.entity)
+            .map(async (entityConf) => {
             const entityId = entityConf.entity;
             const history = await this._fetchHistory(entityId);
             if (history) {
@@ -4040,24 +4067,52 @@ let BackgroundGraphEntities = class BackgroundGraphEntities extends i {
         this.requestUpdate('_history', oldHistory);
     }
     _downsampleHistory(states, hours, pointsPerHour) {
-        if (pointsPerHour <= 0 || states.length <= hours * pointsPerHour) {
-            return states;
+        if (pointsPerHour <= 0 || states.length === 0) {
+            return states; // Return raw states if downsampling is disabled or no data
         }
+        const now = new Date();
+        const startTime = new Date(now.getTime() - hours * 3600 * 1000);
         const interval = (3600 * 1000) / pointsPerHour;
-        const grouped = new Map();
-        for (const state of states) {
-            const key = Math.floor(state.timestamp.getTime() / interval);
-            if (!grouped.has(key))
-                grouped.set(key, { sum: 0, count: 0, lastTs: state.timestamp });
-            const group = grouped.get(key);
-            group.sum += state.value;
-            group.count++;
-            group.lastTs = state.timestamp;
-        }
-        return Array.from(grouped.values()).map((group) => ({
-            timestamp: group.lastTs,
-            value: group.sum / group.count,
+        const numBuckets = Math.ceil((now.getTime() - startTime.getTime()) / interval);
+        const buckets = Array.from({ length: numBuckets }, () => ({
+            values: [],
         }));
+        for (const state of states) {
+            const stateTime = state.timestamp.getTime();
+            if (stateTime < startTime.getTime())
+                continue;
+            const bucketIndex = Math.floor((stateTime - startTime.getTime()) / interval);
+            if (bucketIndex >= 0 && bucketIndex < numBuckets) {
+                buckets[bucketIndex].values.push(state.value);
+            }
+        }
+        const downsampled = [];
+        // The first state is guaranteed by `include_start_time_state: true` to be the value at the start of the window.
+        let lastValue = states[0].value;
+        for (let i = 0; i < numBuckets; i++) {
+            const bucket = buckets[i];
+            let median;
+            if (bucket.values.length > 0) {
+                const sortedValues = bucket.values.sort((a, b) => a - b);
+                const mid = Math.floor(sortedValues.length / 2);
+                median = sortedValues.length % 2 !== 0 ? sortedValues[mid] : (sortedValues[mid - 1] + sortedValues[mid]) / 2;
+                lastValue = median; // Update last known value
+            }
+            else {
+                // Empty bucket, carry forward the last known value
+                median = lastValue;
+            }
+            downsampled.push({
+                // Use the end of the bucket interval as the timestamp
+                timestamp: new Date(startTime.getTime() + (i + 1) * interval),
+                value: median,
+            });
+        }
+        // Add a point at the very beginning to anchor the graph.
+        if (downsampled.length > 0) {
+            downsampled.unshift({ timestamp: startTime, value: states[0].value });
+        }
+        return downsampled;
     }
     async _fetchHistory(entityId) {
         if (!this.hass?.callWS)
@@ -4074,28 +4129,24 @@ let BackgroundGraphEntities = class BackgroundGraphEntities extends i {
                 entity_ids: [entityId],
                 minimal_response: true,
                 no_attributes: true,
+                include_start_time_state: true,
             });
             const states = history[entityId];
             if (!states) {
                 return [];
             }
-            const processedStates = states.map((s) => {
-                // Keep original state `s.s` for logging, but calculate numeric value
+            const finalStates = states
+                .map((s) => {
                 let value;
-                // Handle binary sensor states
-                if (s.s === 'on') {
+                if (s.s === 'on')
                     value = 1;
-                }
-                else if (s.s === 'off') {
+                else if (s.s === 'off')
                     value = 0;
-                }
-                else {
+                else
                     value = Number(s.s);
-                }
-                return { timestamp: new Date(s.lu * 1000), value, originalState: s.s };
-            });
-            const filteredStates = processedStates.filter((s) => !isNaN(s.value));
-            const finalStates = filteredStates.map(({ timestamp, value }) => ({ timestamp, value }));
+                return { timestamp: new Date(s.lu * 1000), value };
+            })
+                .filter((s) => !isNaN(s.value));
             return this._downsampleHistory(finalStates, hoursToShow, pointsPerHour);
         }
         catch (err) {
@@ -4195,7 +4246,7 @@ const fireEvent = (node, type, detail, options) => {
     node.dispatchEvent(event);
 };
 
-const styles = i$3`.color-input-wrapper{position:relative;flex:1}.color-picker-popup{position:absolute;top:100%;left:0;z-index:10;padding:8px;background-color:var(--card-background-color, white);border:1px solid var(--divider-color);border-radius:var(--ha-card-border-radius, 4px);box-shadow:0px 5px 5px -3px rgba(0,0,0,.2),0px 8px 10px 1px rgba(0,0,0,.14),0px 3px 14px 2px rgba(0,0,0,.12)}.color-picker-popup rgb-string-color-picker{width:200px;height:200px}.color-preview{width:28px;height:28px;border-radius:4px;border:1px solid var(--divider-color);cursor:pointer;box-sizing:border-box}.card-config{display:flex;flex-direction:column;gap:16px}.color-picker-popup{display:none}.side-by-side{display:flex;gap:16px}.side-by-side>*{flex:1}.entities-container{display:flex;flex-direction:column;gap:12px}.entity-container{align-items:center;border:1px solid var(--divider-color);border-radius:var(--ha-card-border-radius, 4px);display:flex;gap:8px;padding:8px;transition:border-color .2s ease-in-out,box-shadow .2s ease-in-out,background-color .2s ease-in-out}.entity-container.dragging{background:var(--secondary-background-color);opacity:.5}.entity-container.drag-over{border-color:var(--primary-color);border-style:dashed;box-shadow:0 0 5px var(--primary-color)}.drag-handle{color:var(--secondary-text-color);cursor:move}.entity-content{flex-grow:1}.entity-main{align-items:center;display:flex;gap:8px}.entity-main ha-entity-picker{flex-grow:1}ha-expansion-panel{--expansion-panel-content-padding: 0;margin-top:8px}ha-expansion-panel[outlined][expanded]{--ha-card-background: var(--secondary-background-color)}.overrides{display:flex;flex-direction:column;gap:16px;padding:16px}pre{background:var(--secondary-background-color);border-radius:var(--ha-card-border-radius, 4px);font-size:12px;padding:8px;white-space:pre-wrap;word-break:break-all}.threshold-container{align-items:center;display:flex;gap:8px}.threshold-container .threshold-inputs{align-items:flex-end;display:flex;flex-grow:1;gap:16px}.color-input-wrapper{align-items:center;display:flex;gap:8px}.color-input-wrapper ha-textfield{flex-grow:1}.color-preview{border:1px solid var(--divider-color);border-radius:4px;box-sizing:border-box;cursor:pointer;flex-shrink:0;height:28px;width:28px}.opacity-slider-container{display:flex;flex-direction:column;width:100%}.label-container{color:var(--secondary-text-color);display:flex;font-size:12px;justify-content:space-between;margin-bottom:-8px;margin-left:3px}`;
+const styles = i$3`.color-input-wrapper{position:relative;flex:1}.color-picker-popup{position:absolute;top:100%;left:0;z-index:10;padding:8px;background-color:var(--card-background-color, white);border:1px solid var(--divider-color);border-radius:var(--ha-card-border-radius, 4px);box-shadow:0px 5px 5px -3px rgba(0,0,0,.2),0px 8px 10px 1px rgba(0,0,0,.14),0px 3px 14px 2px rgba(0,0,0,.12)}.color-picker-popup rgb-string-color-picker{width:200px;height:200px}.color-preview{width:28px;height:28px;border-radius:4px;border:1px solid var(--divider-color);cursor:pointer;box-sizing:border-box}.card-config{display:flex;flex-direction:column;gap:16px}.color-picker-popup{display:none}.side-by-side{display:flex;gap:16px}.side-by-side>*{flex:1}.entities-container{display:flex;flex-direction:column;gap:12px}.entity-container{align-items:center;border:1px solid var(--divider-color);border-radius:var(--ha-card-border-radius, 4px);display:flex;gap:8px;padding:8px;transition:border-color .2s ease-in-out,box-shadow .2s ease-in-out,background-color .2s ease-in-out}.entity-container.dragging{background:var(--secondary-background-color);opacity:.5}.entity-container.drag-over{border-color:var(--primary-color);border-style:dashed;box-shadow:0 0 5px var(--primary-color)}.drag-handle{color:var(--secondary-text-color);cursor:move}.entity-content{flex-grow:1}.entity-main{align-items:center;display:flex;gap:8px}.entity-main ha-entity-picker{flex-grow:1}ha-expansion-panel{--expansion-panel-content-padding: 0;margin-top:8px}ha-expansion-panel[outlined][expanded]{--ha-card-background: var(--secondary-background-color)}.overrides{display:flex;flex-direction:column;gap:16px;padding:16px}pre{background:var(--secondary-background-color);border-radius:var(--ha-card-border-radius, 4px);font-size:12px;padding:8px;white-space:pre-wrap;word-break:break-all}.threshold-container{align-items:center;display:flex;gap:8px}.threshold-container .threshold-inputs{align-items:flex-end;display:flex;flex-grow:1;gap:16px}.color-input-wrapper{align-items:center;display:flex;gap:8px}.color-input-wrapper ha-textfield{flex-grow:1}.color-preview{border:1px solid var(--divider-color);border-radius:4px;box-sizing:border-box;cursor:pointer;flex-shrink:0;height:28px;width:28px}.opacity-slider-container{display:flex;flex-direction:column;width:100%}.label-container{color:var(--secondary-text-color);display:flex;font-size:12px;justify-content:space-between;margin-bottom:-8px;margin-left:3px}.header{align-items:center;display:flex;gap:8px;margin-bottom:16px}.header .title{font-size:1.2em;font-weight:500}`;
 
 // Clamps a value between an upper and lower bound.
 // We use ternary operators because it makes the minified code
@@ -4578,6 +4629,7 @@ let BackgroundGraphEntitiesEditor = class BackgroundGraphEntitiesEditor extends 
     _draggedThresholdIndex = null;
     _dropThresholdIndex = null;
     _activeColorPicker = null;
+    _editingIndex = null;
     setConfig(config) {
         const entities = (config.entities || []).filter(Boolean).map((e) => (typeof e === 'string' ? { entity: e } : e));
         this._config = {
@@ -4670,12 +4722,19 @@ let BackgroundGraphEntitiesEditor = class BackgroundGraphEntitiesEditor extends 
         const field = target.dataset.field;
         if (!this._config || isNaN(index) || !field)
             return;
-        const value = ev.detail?.value ?? target.value;
+        let value = ev.detail?.value ?? target.value;
+        if (target.tagName.toLowerCase() === 'ha-slider' || target.type === 'number') {
+            value = target.value === '' ? undefined : Number(target.value);
+        }
         const newEntities = [...this._config.entities];
-        newEntities[index] = {
-            ...newEntities[index],
-            [field]: value,
-        };
+        const newEntityConf = { ...newEntities[index] };
+        if (value === '' || value === undefined || (typeof value === 'number' && isNaN(value))) {
+            delete newEntityConf[field];
+        }
+        else {
+            newEntityConf[field] = value;
+        }
+        newEntities[index] = newEntityConf;
         const newConfig = { ...this._config, entities: newEntities };
         this._config = newConfig;
         fireEvent(this, 'config-changed', { config: newConfig });
@@ -4728,6 +4787,78 @@ let BackgroundGraphEntitiesEditor = class BackgroundGraphEntitiesEditor extends 
         this._config = newConfig;
         fireEvent(this, 'config-changed', { config: newConfig });
     }
+    _handleEntityColorModeChange(ev, index) {
+        const newMode = ev.target.value;
+        const entityConf = this._config.entities[index];
+        const oldMode = (entityConf.color_thresholds?.length ?? 0) > 0 ? 'threshold' : 'single';
+        if (newMode === oldMode)
+            return;
+        const newEntities = [...this._config.entities];
+        const newEntityConf = { ...newEntities[index] };
+        if (newMode === 'threshold') {
+            delete newEntityConf.line_color;
+            if (!newEntityConf.color_thresholds || newEntityConf.color_thresholds.length === 0) {
+                newEntityConf.color_thresholds = [{ value: 0, color: '#000000' }];
+            }
+        }
+        else {
+            delete newEntityConf.color_thresholds;
+        }
+        newEntities[index] = newEntityConf;
+        const newConfig = { ...this._config, entities: newEntities };
+        this._config = newConfig;
+        fireEvent(this, 'config-changed', { config: newConfig });
+    }
+    _entityThresholdChanged(ev, entityIndex, thresholdIndex) {
+        if (!this._config)
+            return;
+        const target = ev.target;
+        const field = target.dataset.field;
+        const isColorPicker = target.tagName.toLowerCase().includes('color-picker');
+        const value = isColorPicker ? ev.detail.value : target.value;
+        const newEntities = [...this._config.entities];
+        const entityConf = { ...newEntities[entityIndex] };
+        const newThresholds = [...(entityConf.color_thresholds || [])];
+        newThresholds[thresholdIndex] = {
+            ...newThresholds[thresholdIndex],
+            [field]: field === 'value' ? Number(value) : value,
+        };
+        entityConf.color_thresholds = newThresholds;
+        newEntities[entityIndex] = entityConf;
+        const newConfig = { ...this._config, entities: newEntities };
+        this._config = newConfig;
+        fireEvent(this, 'config-changed', { config: newConfig });
+    }
+    _addEntityThreshold(entityIndex) {
+        if (!this._config)
+            return;
+        const newEntities = [...this._config.entities];
+        const entityConf = { ...newEntities[entityIndex] };
+        const newThresholds = [...(entityConf.color_thresholds || []), { value: 0, color: '#000000' }];
+        entityConf.color_thresholds = newThresholds;
+        newEntities[entityIndex] = entityConf;
+        const newConfig = { ...this._config, entities: newEntities };
+        this._config = newConfig;
+        fireEvent(this, 'config-changed', { config: newConfig });
+    }
+    _removeEntityThreshold(entityIndex, thresholdIndex) {
+        if (!this._config)
+            return;
+        const newEntities = [...this._config.entities];
+        const entityConf = { ...newEntities[entityIndex] };
+        const newThresholds = [...(entityConf.color_thresholds || [])];
+        newThresholds.splice(thresholdIndex, 1);
+        if (newThresholds.length === 0) {
+            delete entityConf.color_thresholds;
+        }
+        else {
+            entityConf.color_thresholds = newThresholds;
+        }
+        newEntities[entityIndex] = entityConf;
+        const newConfig = { ...this._config, entities: newEntities };
+        this._config = newConfig;
+        fireEvent(this, 'config-changed', { config: newConfig });
+    }
     _handleThresholdDragStart(ev, index) {
         this._draggedThresholdIndex = index;
         if (ev.dataTransfer)
@@ -4751,10 +4882,39 @@ let BackgroundGraphEntitiesEditor = class BackgroundGraphEntitiesEditor extends 
         this._draggedThresholdIndex = null;
         this._dropThresholdIndex = null;
     }
+    _handleEntityThresholdDragStart(ev, index) {
+        this._draggedThresholdIndex = index;
+        if (ev.dataTransfer)
+            ev.dataTransfer.effectAllowed = 'move';
+    }
+    _handleEntityThresholdDragOver(ev, index) {
+        ev.preventDefault();
+        if (index !== this._draggedThresholdIndex)
+            this._dropThresholdIndex = index;
+    }
+    _handleEntityThresholdDrop(ev, entityIndex) {
+        ev.preventDefault();
+        if (this._draggedThresholdIndex === null || this._dropThresholdIndex === null)
+            return;
+        const newEntities = [...this._config.entities];
+        const entityConf = { ...newEntities[entityIndex] };
+        const newThresholds = [...(entityConf.color_thresholds || [])];
+        const [draggedItem] = newThresholds.splice(this._draggedThresholdIndex, 1);
+        newThresholds.splice(this._dropThresholdIndex, 0, draggedItem);
+        entityConf.color_thresholds = newThresholds;
+        newEntities[entityIndex] = entityConf;
+        const newConfig = { ...this._config, entities: newEntities };
+        this._config = newConfig;
+        fireEvent(this, 'config-changed', { config: newConfig });
+        this._draggedThresholdIndex = null;
+        this._dropThresholdIndex = null;
+    }
     _handleDragStart(ev, index) {
         this._draggedIndex = index;
         if (ev.dataTransfer) {
             ev.dataTransfer.effectAllowed = 'move';
+            // Required for Firefox to initiate drag
+            ev.dataTransfer.setData('text/plain', String(index));
         }
     }
     _handleDragOver(ev, index) {
@@ -4797,10 +4957,242 @@ let BackgroundGraphEntitiesEditor = class BackgroundGraphEntitiesEditor extends 
         this._config = newConfig;
         fireEvent(this, 'config-changed', { config: newConfig });
     }
+    _overwriteAppearanceChanged(ev) {
+        const target = ev.target;
+        const index = Number(target.dataset.index);
+        const checked = target.checked;
+        if (!this._config || isNaN(index))
+            return;
+        const newEntities = [...this._config.entities];
+        const newEntityConf = { ...newEntities[index] };
+        if (checked) {
+            newEntityConf.overwrite_graph_appearance = true;
+        }
+        else {
+            delete newEntityConf.overwrite_graph_appearance;
+            delete newEntityConf.line_color;
+            delete newEntityConf.line_opacity;
+            delete newEntityConf.color_thresholds;
+        }
+        newEntities[index] = newEntityConf;
+        const newConfig = { ...this._config, entities: newEntities };
+        this._config = newConfig;
+        fireEvent(this, 'config-changed', { config: newConfig });
+        this.requestUpdate();
+    }
+    _editEntity(index) {
+        this._editingIndex = index;
+        this.requestUpdate();
+    }
+    _goBack() {
+        this._editingIndex = null;
+        this.requestUpdate();
+    }
+    _renderEntityEditor() {
+        if (this._editingIndex === null)
+            return x$1 ``;
+        const entityConf = this._config.entities[this._editingIndex];
+        if (!entityConf)
+            return x$1 ``;
+        const overwriteAppearance = entityConf.overwrite_graph_appearance ?? false;
+        return x$1 `
+      <div class="header">
+        <ha-icon-button
+          .path=${'M15.41,16.58L10.83,12L15.41,7.41L14,6L8,12L14,18L15.41,16.58Z'}
+          @click=${this._goBack}
+        ></ha-icon-button>
+        <span class="title">${entityConf.name || entityConf.entity}</span>
+      </div>
+      <div class="card-config">
+        <ha-textfield
+          .label=${localize(this.hass, 'component.bge.editor.name')}
+          .value=${entityConf.name || ''}
+          .configValue=${'name'}
+          data-index=${this._editingIndex}
+          data-field="name"
+          @change=${this._entityAttributeChanged}
+        ></ha-textfield>
+        <ha-icon-picker
+          .hass=${this.hass}
+          .label=${localize(this.hass, 'component.bge.editor.icon')}
+          .value=${entityConf.icon || ''}
+          data-index=${this._editingIndex}
+          data-field="icon"
+          @value-changed=${this._entityAttributeChanged}
+        ></ha-icon-picker>
+
+        <ha-formfield .label=${localize(this.hass, 'component.bge.editor.optional_overrides')}>
+          <ha-switch
+            .checked=${overwriteAppearance}
+            data-index=${this._editingIndex}
+            @change=${this._overwriteAppearanceChanged}
+          ></ha-switch>
+        </ha-formfield>
+
+        ${overwriteAppearance ? this._renderEntityGraphAppearanceEditor(this._editingIndex) : ''}
+      </div>
+    `;
+    }
+    _renderEntityGraphAppearanceEditor(index) {
+        const entityConf = this._config.entities[index];
+        if (!entityConf)
+            return x$1 ``;
+        const colorMode = (entityConf.color_thresholds?.length ?? 0) > 0 ? 'threshold' : 'single';
+        const isDarkMode = this.hass.themes?.darkMode ?? false;
+        const defaultLineColor = isDarkMode ? 'white' : 'black';
+        const finalLineColor = entityConf.line_color || this._config.line_color || defaultLineColor;
+        return x$1 `
+      <div class="overrides">
+        <h3>${localize(this.hass, 'component.bge.editor.graph_appearance')}</h3>
+
+        <div class="opacity-slider-container">
+          <div class="label-container">
+            <span>${localize(this.hass, 'component.bge.editor.line_opacity')}</span>
+            <span>${Number(entityConf.line_opacity ?? this._config.line_opacity ?? 0.2).toFixed(2)}</span>
+          </div>
+          <ha-slider
+            min="0.1"
+            max="0.8"
+            step="0.05"
+            .value=${entityConf.line_opacity ?? this._config.line_opacity ?? 0.2}
+            data-index=${index}
+            data-field="line_opacity"
+            @change=${this._entityAttributeChanged}
+            pin
+          ></ha-slider>
+        </div>
+
+        <ha-select
+          .label=${localize(this.hass, 'component.bge.editor.color_mode')}
+          .value=${colorMode}
+          @selected=${(e) => this._handleEntityColorModeChange(e, index)}
+          @closed=${(ev) => ev.stopPropagation()}
+        >
+          <mwc-list-item value="single">${localize(this.hass, 'component.bge.editor.color_mode_single')}</mwc-list-item>
+          <mwc-list-item value="threshold"
+            >${localize(this.hass, 'component.bge.editor.color_mode_threshold')}</mwc-list-item
+          >
+        </ha-select>
+
+        ${colorMode === 'single'
+            ? x$1 `
+              <div
+                class="color-input-wrapper"
+                data-picker-id="entity_line_color_${index}"
+                @mousedown=${(e) => this._toggleColorPicker(e, `entity_line_color_${index}`)}
+              >
+                <ha-textfield
+                  .label=${localize(this.hass, 'component.bge.editor.line_color')}
+                  .value=${entityConf.line_color ?? ''}
+                  .placeholder=${this._config.line_color || defaultLineColor}
+                  data-index=${index}
+                  data-field="line_color"
+                  @change=${this._entityAttributeChanged}
+                ></ha-textfield>
+                <div class="color-preview" style="background-color: ${finalLineColor}"></div>
+                <div
+                  class="color-picker-popup"
+                  data-picker-id="entity_line_color_${index}"
+                  @mousedown=${(e) => e.stopPropagation()}
+                >
+                  <rgb-string-color-picker
+                    .color=${finalLineColor}
+                    data-index=${index}
+                    data-field="line_color"
+                    @color-changed=${this._entityAttributeChanged}
+                    alpha
+                  ></rgb-string-color-picker>
+                </div>
+              </div>
+            `
+            : this._renderEntityThresholdsEditor(index)}
+      </div>
+    `;
+    }
+    _renderEntityThresholdsEditor(entityIndex) {
+        const entityConf = this._config.entities[entityIndex];
+        if (!entityConf)
+            return x$1 ``;
+        return x$1 `
+      <div>
+        <h4>${localize(this.hass, 'component.bge.editor.color_thresholds')}</h4>
+        <div class="entities-container">
+          ${(entityConf.color_thresholds || []).map((threshold, index) => x$1 `
+              <div
+                class="entity-container threshold-container ${this._dropThresholdIndex === index
+            ? 'drag-over'
+            : ''} ${this._draggedThresholdIndex === index ? 'dragging' : ''}"
+                draggable="true"
+                @dragstart=${(e) => this._handleEntityThresholdDragStart(e, index)}
+                @dragover=${(e) => this._handleEntityThresholdDragOver(e, index)}
+                @dragleave=${() => (this._dropThresholdIndex = null)}
+                @drop=${(e) => this._handleEntityThresholdDrop(e, entityIndex)}
+                @dragend=${() => {
+            this._draggedThresholdIndex = null;
+            this._dropThresholdIndex = null;
+        }}
+              >
+                <div class="drag-handle">
+                  <ha-icon .icon=${'mdi:drag-vertical'}></ha-icon>
+                </div>
+                <div class="threshold-inputs">
+                  <ha-textfield
+                    .label=${localize(this.hass, 'component.bge.editor.value')}
+                    type="number"
+                    .value=${String(threshold.value)}
+                    data-field="value"
+                    @change=${(e) => this._entityThresholdChanged(e, entityIndex, index)}
+                  ></ha-textfield>
+                  <div
+                    class="color-input-wrapper"
+                    data-picker-id=${`entity_${entityIndex}_threshold_${index}`}
+                    @mousedown=${(e) => this._toggleColorPicker(e, `entity_${entityIndex}_threshold_${index}`)}
+                  >
+                    <ha-textfield
+                      .label=${localize(this.hass, 'component.bge.editor.color')}
+                      .value=${threshold.color}
+                      data-field="color"
+                      @change=${(e) => this._entityThresholdChanged(e, entityIndex, index)}
+                    ></ha-textfield>
+                    <div class="color-preview" style="background-color: ${threshold.color}"></div>
+                    <div
+                      class="color-picker-popup"
+                      data-picker-id=${`entity_${entityIndex}_threshold_${index}`}
+                      @mousedown=${(e) => e.stopPropagation()}
+                    >
+                      <rgb-string-color-picker
+                        .color=${threshold.color}
+                        data-field="color"
+                        @color-changed=${(e) => this._entityThresholdChanged(e, entityIndex, index)}
+                        alpha
+                      ></rgb-string-color-picker>
+                    </div>
+                  </div>
+                </div>
+                <ha-icon-button
+                  class="remove-icon"
+                  .path=${'M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z'}
+                  @click=${() => this._removeEntityThreshold(entityIndex, index)}
+                ></ha-icon-button>
+              </div>
+            `)}
+        </div>
+        <ha-button @click=${() => this._addEntityThreshold(entityIndex)}>
+          ${localize(this.hass, 'component.bge.editor.add_threshold')}
+        </ha-button>
+      </div>
+    `;
+    }
     render() {
         if (!this.hass || !this._config) {
             return x$1 `<div>Waiting for config…</div>`;
         }
+        if (this._editingIndex !== null) {
+            return this._renderEntityEditor();
+        }
+        return this._renderMainConfig();
+    }
+    _renderMainConfig() {
         const colorMode = (this._config.color_thresholds?.length ?? 0) > 0 ? 'threshold' : 'single';
         const isDarkMode = this.hass.themes?.darkMode ?? false;
         const defaultLineColor = isDarkMode ? 'white' : 'black';
@@ -5010,54 +5402,42 @@ let BackgroundGraphEntitiesEditor = class BackgroundGraphEntitiesEditor extends 
                 class="entity-container ${this._dropIndex === index ? 'drag-over' : ''} ${this._draggedIndex === index
             ? 'dragging'
             : ''}"
-                draggable="true"
-                @dragstart=${(e) => this._handleDragStart(e, index)}
                 @dragover=${(e) => this._handleDragOver(e, index)}
                 @dragleave=${this._handleDragLeave}
                 @drop=${this._handleDrop}
                 @dragend=${this._handleDragEnd}
               >
-                <div class="drag-handle">
+                <div
+                  class="drag-handle"
+                  draggable="true"
+                  @dragstart=${(e) => this._handleDragStart(e, index)}
+                >
                   <ha-icon .icon=${'mdi:drag-vertical'}></ha-icon>
                 </div>
                 <div class="entity-content">
                   <div class="entity-main">
                     <ha-entity-picker
                       .hass=${this.hass}
-                      .value=${entity.entity || ''}
+                      .value=${entity.entity}
                       data-index=${index}
                       data-field="entity"
+                      @mousedown=${(e) => e.stopPropagation()}
                       @value-changed=${this._entityAttributeChanged}
                       allow-custom-entity
                     ></ha-entity-picker>
                     <ha-icon-button
+                      class="edit-icon"
+                      .path=${'M20.71,7.04C21.1,6.65 21.1,6 20.71,5.63L18.37,3.29C18,2.9 17.35,2.9 16.96,3.29L15.12,5.12L18.87,8.87M3,17.25V21H6.75L17.81,9.93L14.06,6.18L3,17.25Z'}
+                      @mousedown=${(e) => e.stopPropagation()}
+                      @click=${() => this._editEntity(index)}
+                    ></ha-icon-button>
+                    <ha-icon-button
                       class="remove-icon"
                       .path=${'M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z'}
+                      @mousedown=${(e) => e.stopPropagation()}
                       @click=${() => this._removeEntity(index)}
                     ></ha-icon-button>
                   </div>
-                  <ha-expansion-panel
-                    .header=${localize(this.hass, 'component.bge.editor.optional_overrides')}
-                    outlined
-                  >
-                    <div class="overrides">
-                      <ha-textfield
-                        .label=${localize(this.hass, 'component.bge.editor.name')}
-                        .value=${entity.name || ''}
-                        data-index=${index}
-                        data-field="name"
-                        @change=${this._entityAttributeChanged}
-                      ></ha-textfield>
-                      <ha-icon-picker
-                        .hass=${this.hass}
-                        .label=${localize(this.hass, 'component.bge.editor.icon')}
-                        .value=${entity.icon || ''}
-                        data-index=${index}
-                        data-field="icon"
-                        @value-changed=${this._entityAttributeChanged}
-                      ></ha-icon-picker>
-                    </div>
-                  </ha-expansion-panel>
                 </div>
               </div>
             `)}
@@ -5091,6 +5471,9 @@ __decorate([
 __decorate([
     r()
 ], BackgroundGraphEntitiesEditor.prototype, "_activeColorPicker", void 0);
+__decorate([
+    r()
+], BackgroundGraphEntitiesEditor.prototype, "_editingIndex", void 0);
 BackgroundGraphEntitiesEditor = __decorate([
     t('background-graph-entities-editor')
 ], BackgroundGraphEntitiesEditor);

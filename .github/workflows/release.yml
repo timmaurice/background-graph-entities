@@ -3,7 +3,7 @@ name: Release
 on:
   push:
     tags:
-      - 'v*.*.*'
+      - '[0-9]+.[0-9]+.[0-9]+'
 
 permissions:
   contents: write
@@ -24,10 +24,11 @@ jobs:
         run: npm install
 
       - name: Build the project
-        run: npm run build # I'm assuming a 'build' script exists in your package.json
+        run: npm run build
 
       - name: Create Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           files: |
             dist/background-graph-entities.js
+          draft: true

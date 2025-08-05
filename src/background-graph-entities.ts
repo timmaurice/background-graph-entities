@@ -7,6 +7,7 @@ import {
   LovelaceCardConfig,
   BackgroundGraphEntitiesConfig,
   EntityConfig,
+  ColorThreshold,
 } from './types.js';
 import { extent } from 'd3-array';
 import { scaleLinear, scaleTime, ScaleLinear } from 'd3-scale';
@@ -107,7 +108,6 @@ export class BackgroundGraphEntities extends LitElement implements LovelaceCard 
     await (entitiesCard.constructor as LovelaceCardConstructor).getConfigElement();
 
     await import('./editor.js');
-    console.log('[BGE] getConfigElement called, creating editor element.');
     return document.createElement('background-graph-entities-editor') as LovelaceCardEditor;
   }
 
@@ -124,10 +124,9 @@ export class BackgroundGraphEntities extends LitElement implements LovelaceCard 
       this._fetchAndStoreAllHistory();
     }
 
-    // The D3 rendering should happen after an update when history is available.
-    if (changedProperties.has('_history')) {
-      // Defer rendering to the next frame to ensure the DOM is fully updated and
-      // the containers are available to be queried.
+    // Rerender on history change or on any hass update to keep the time axis current.
+    if (changedProperties.has('_history') || (changedProperties.has('hass') && this._historyFetched)) {
+      // Defer rendering to the next frame to ensure the DOM is fully updated.
       requestAnimationFrame(() => this._renderAllGraphs());
     }
   }
@@ -140,11 +139,7 @@ export class BackgroundGraphEntities extends LitElement implements LovelaceCard 
     const containers = this.renderRoot.querySelectorAll<HTMLElement>('.graph-container');
 
     if (containers.length === 0) {
-      if (retryCount < MAX_RETRIES) {
-        requestAnimationFrame(() => this._renderAllGraphs(retryCount + 1));
-      } else {
-        console.warn(`[BGE] _renderAllGraphs: Could not find graph containers after ${MAX_RETRIES} retries.`);
-      }
+      if (retryCount < MAX_RETRIES) requestAnimationFrame(() => this._renderAllGraphs(retryCount + 1));
       return;
     }
 
@@ -153,23 +148,19 @@ export class BackgroundGraphEntities extends LitElement implements LovelaceCard 
     containers.forEach((container) => {
       const entityId = container.dataset.entityId;
       if (entityId) {
+        const entityConfig = this._entities.find((e) => e.entity === entityId);
         const history = this._history.get(entityId);
-        this._renderD3Graph(container, history);
+        this._renderD3Graph(container, history, entityConfig);
       }
     });
   }
 
-  private _setupGradient(
+  private _createGradient(
     svg: Selection<SVGSVGElement, unknown, null, undefined>,
     yScale: ScaleLinear<number, number>,
     gradientId: string,
+    thresholds: ColorThreshold[],
   ): string {
-    const thresholds = this._config.color_thresholds;
-    if (!thresholds || thresholds.length === 0) {
-      const isDarkMode = this.hass.themes?.darkMode ?? false;
-      return this._config?.line_color || (isDarkMode ? 'white' : 'black');
-    }
-
     const thresholdDomain = extent(thresholds, (t) => t.value) as [number, number];
     const gradient = svg
       .append('defs')
@@ -192,6 +183,35 @@ export class BackgroundGraphEntities extends LitElement implements LovelaceCard 
     });
 
     return `url(#${gradientId})`;
+  }
+
+  private _setupGradient(
+    svg: Selection<SVGSVGElement, unknown, null, undefined>,
+    yScale: ScaleLinear<number, number>,
+    gradientId: string,
+    entityConfig?: EntityConfig,
+  ): string {
+    const isDarkMode = this.hass.themes?.darkMode ?? false;
+    const defaultColor = isDarkMode ? 'white' : 'black';
+
+    // Check for entity-specific appearance override first
+    if (entityConfig?.overwrite_graph_appearance) {
+      const entityThresholds = entityConfig.color_thresholds;
+      if (entityThresholds && entityThresholds.length > 0) {
+        return this._createGradient(svg, yScale, gradientId, entityThresholds);
+      }
+      // If no entity thresholds, use entity line color, or fall back to global, then default.
+      return entityConfig.line_color ?? this._config.line_color ?? defaultColor;
+    }
+
+    // If no entity override, use global settings
+    const globalThresholds = this._config.color_thresholds;
+    if (globalThresholds && globalThresholds.length > 0) {
+      return this._createGradient(svg, yScale, gradientId, globalThresholds);
+    }
+
+    // Fallback to global line color, then default.
+    return this._config.line_color ?? defaultColor;
   }
 
   public getCardSize(): number {
@@ -245,7 +265,11 @@ export class BackgroundGraphEntities extends LitElement implements LovelaceCard 
     `;
   }
 
-  private _renderD3Graph(container: HTMLElement, history: { timestamp: Date; value: number }[] | undefined): void {
+  private _renderD3Graph(
+    container: HTMLElement,
+    history: { timestamp: Date; value: number }[] | undefined,
+    entityConfig?: EntityConfig,
+  ): void {
     const MAX_RETRIES = 10;
     const retryCount = this._renderRetryMap.get(container) || 0;
 
@@ -253,12 +277,7 @@ export class BackgroundGraphEntities extends LitElement implements LovelaceCard 
       if (retryCount < MAX_RETRIES) {
         this._renderRetryMap.set(container, retryCount + 1);
         // If container is not ready, retry shortly.
-        requestAnimationFrame(() => this._renderD3Graph(container, history));
-      } else {
-        console.warn(
-          `[BGE] _renderD3Graph: Could not render graph for ${container.dataset.entityId} after ${MAX_RETRIES} retries. The container might not be visible.`,
-        );
-        this._renderRetryMap.delete(container); // Reset for next time
+        requestAnimationFrame(() => this._renderD3Graph(container, history, entityConfig));
       }
       return;
     }
@@ -269,15 +288,41 @@ export class BackgroundGraphEntities extends LitElement implements LovelaceCard 
     // Clear any previous graph
     select(container).html('');
 
-    if (!history || history.length < 2) {
+    if (!history || history.length === 0) {
       return;
     }
 
     const width = container.clientWidth;
     const height = container.clientHeight;
 
-    const xDomain = extent(history, (d) => d.timestamp) as [Date, Date];
-    const yDomain = extent(history, (d) => d.value) as [number, number];
+    const hoursToShow = this._config?.hours_to_show || 24;
+    const end = new Date();
+    const start = new Date();
+    start.setHours(end.getHours() - hoursToShow);
+
+    const xDomain: [Date, Date] = [start, end];
+
+    // Clone history to avoid mutating the state, and add a point at the end
+    // to extend the graph to the current time.
+    const processedHistory = [...history];
+    const lastHistory = processedHistory[processedHistory.length - 1];
+    if (lastHistory) {
+      processedHistory.push({
+        timestamp: end,
+        value: lastHistory.value,
+      });
+    }
+
+    if (processedHistory.length < 2) {
+      return; // Not enough points to draw a line
+    }
+
+    const yDomain = extent(processedHistory, (d) => d.value) as [number, number];
+
+    if (yDomain[0] === yDomain[1]) {
+      yDomain[0] -= 1;
+      yDomain[1] += 1;
+    }
 
     const yPadding = (yDomain[1] - yDomain[0]) * 0.1;
     yDomain[0] -= yPadding;
@@ -291,13 +336,8 @@ export class BackgroundGraphEntities extends LitElement implements LovelaceCard 
       .attr('viewBox', `0 0 ${width} ${height}`)
       .attr('preserveAspectRatio', 'none');
 
-    if (yDomain[0] === yDomain[1]) {
-      yDomain[0] -= 1;
-      yDomain[1] += 1;
-    }
-
     const gradientId = `bge-gradient-${container.dataset.entityId}`;
-    const strokeColor = this._setupGradient(svg, yScale, gradientId);
+    const strokeColor = this._setupGradient(svg, yScale, gradientId, entityConfig);
 
     const lineGenerator = d3Line<{ timestamp: Date; value: number }>()
       .x((d) => xScale(d.timestamp))
@@ -306,11 +346,16 @@ export class BackgroundGraphEntities extends LitElement implements LovelaceCard 
 
     svg
       .append('path')
-      .datum(history)
+      .datum(processedHistory)
       .attr('class', 'graph-path')
       .attr('d', lineGenerator)
       .attr('stroke', strokeColor)
-      .attr('stroke-opacity', this._config?.line_opacity ?? 0.2)
+      .attr(
+        'stroke-opacity',
+        entityConfig?.overwrite_graph_appearance && entityConfig.line_opacity !== undefined
+          ? entityConfig.line_opacity
+          : (this._config?.line_opacity ?? 0.2),
+      )
       .attr('stroke-width', this._config?.line_width || 3);
   }
 
@@ -320,13 +365,15 @@ export class BackgroundGraphEntities extends LitElement implements LovelaceCard 
       return;
     }
     const newHistory = new Map<string, { timestamp: Date; value: number }[]>();
-    const historyPromises = this._entities.map(async (entityConf) => {
-      const entityId = entityConf.entity;
-      const history = await this._fetchHistory(entityId);
-      if (history) {
-        newHistory.set(entityId, history);
-      }
-    });
+    const historyPromises = this._entities
+      .filter((entityConf) => entityConf.entity)
+      .map(async (entityConf) => {
+        const entityId = entityConf.entity;
+        const history = await this._fetchHistory(entityId);
+        if (history) {
+          newHistory.set(entityId, history);
+        }
+      });
     const oldHistory = this._history;
     await Promise.all(historyPromises);
     this._history = newHistory;
@@ -338,26 +385,60 @@ export class BackgroundGraphEntities extends LitElement implements LovelaceCard 
     hours: number,
     pointsPerHour: number,
   ): { timestamp: Date; value: number }[] {
-    if (pointsPerHour <= 0 || states.length <= hours * pointsPerHour) {
-      return states;
+    if (pointsPerHour <= 0 || states.length === 0) {
+      return states; // Return raw states if downsampling is disabled or no data
     }
 
+    const now = new Date();
+    const startTime = new Date(now.getTime() - hours * 3600 * 1000);
     const interval = (3600 * 1000) / pointsPerHour;
-    const grouped = new Map<number, { sum: number; count: number; lastTs: Date }>();
+    const numBuckets = Math.ceil((now.getTime() - startTime.getTime()) / interval);
+
+    const buckets: { values: number[] }[] = Array.from({ length: numBuckets }, () => ({
+      values: [],
+    }));
 
     for (const state of states) {
-      const key = Math.floor(state.timestamp.getTime() / interval);
-      if (!grouped.has(key)) grouped.set(key, { sum: 0, count: 0, lastTs: state.timestamp });
-      const group = grouped.get(key)!;
-      group.sum += state.value;
-      group.count++;
-      group.lastTs = state.timestamp;
+      const stateTime = state.timestamp.getTime();
+      if (stateTime < startTime.getTime()) continue;
+
+      const bucketIndex = Math.floor((stateTime - startTime.getTime()) / interval);
+      if (bucketIndex >= 0 && bucketIndex < numBuckets) {
+        buckets[bucketIndex].values.push(state.value);
+      }
     }
 
-    return Array.from(grouped.values()).map((group) => ({
-      timestamp: group.lastTs,
-      value: group.sum / group.count,
-    }));
+    const downsampled: { timestamp: Date; value: number }[] = [];
+    // The first state is guaranteed by `include_start_time_state: true` to be the value at the start of the window.
+    let lastValue = states[0].value;
+
+    for (let i = 0; i < numBuckets; i++) {
+      const bucket = buckets[i];
+      let median: number;
+
+      if (bucket.values.length > 0) {
+        const sortedValues = bucket.values.sort((a, b) => a - b);
+        const mid = Math.floor(sortedValues.length / 2);
+        median = sortedValues.length % 2 !== 0 ? sortedValues[mid] : (sortedValues[mid - 1] + sortedValues[mid]) / 2;
+        lastValue = median; // Update last known value
+      } else {
+        // Empty bucket, carry forward the last known value
+        median = lastValue;
+      }
+
+      downsampled.push({
+        // Use the end of the bucket interval as the timestamp
+        timestamp: new Date(startTime.getTime() + (i + 1) * interval),
+        value: median,
+      });
+    }
+
+    // Add a point at the very beginning to anchor the graph.
+    if (downsampled.length > 0) {
+      downsampled.unshift({ timestamp: startTime, value: states[0].value });
+    }
+
+    return downsampled;
   }
 
   private async _fetchHistory(entityId: string): Promise<{ timestamp: Date; value: number }[] | null> {
@@ -379,6 +460,7 @@ export class BackgroundGraphEntities extends LitElement implements LovelaceCard 
         entity_ids: [entityId],
         minimal_response: true,
         no_attributes: true,
+        include_start_time_state: true,
       });
 
       const states = history[entityId];
@@ -386,24 +468,15 @@ export class BackgroundGraphEntities extends LitElement implements LovelaceCard 
         return [];
       }
 
-      const processedStates = states.map((s) => {
-        // Keep original state `s.s` for logging, but calculate numeric value
-        let value: number;
-        // Handle binary sensor states
-        if (s.s === 'on') {
-          value = 1;
-        } else if (s.s === 'off') {
-          value = 0;
-        } else {
-          value = Number(s.s);
-        }
-        return { timestamp: new Date(s.lu * 1000), value, originalState: s.s };
-      });
-
-      const filteredStates = processedStates.filter((s) => !isNaN(s.value));
-
-      const finalStates = filteredStates.map(({ timestamp, value }) => ({ timestamp, value }));
-
+      const finalStates = states
+        .map((s) => {
+          let value: number;
+          if (s.s === 'on') value = 1;
+          else if (s.s === 'off') value = 0;
+          else value = Number(s.s);
+          return { timestamp: new Date(s.lu * 1000), value };
+        })
+        .filter((s) => !isNaN(s.value));
       return this._downsampleHistory(finalStates, hoursToShow, pointsPerHour);
     } catch (err) {
       console.error(`Error fetching history for ${entityId}:`, err);

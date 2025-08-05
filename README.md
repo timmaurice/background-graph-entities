@@ -31,64 +31,113 @@ The `background-graph-entities` custom component for Home Assistant displays a l
 3. Install `background-graph-entities` via HACS.<br>
    [![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=timmaurice&repository=lovelace-background-graph-entities&category=Dashboard)
 
-## Usage
+## Configuration
 
-Add the custom component to your Lovelace configuration. Below is an example configuration for using the `background-graph-entities` component:
+This card can be configured via the UI editor or by using YAML.
+
+### UI Editor
+
+The card is fully configurable through the UI editor.
+
+1.  Add a new card to your dashboard.
+2.  Search for "Background Graph Entities" and select it.
+3.  Use the editor to configure the card title, entities, and global graph appearance.
+4.  To customize an individual entity, click the "Edit" icon next to it in the entity list.
+
+### YAML Configuration
+
+#### Card Options
+
+| Name               | Type   | Default                          | Description                                                                                                                                                                                                                           |
+| ------------------ | ------ | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `type`             | string | **Required**                     | `custom:background-graph-entities`                                                                                                                                                                                                    |
+| `title`            | string | `''`                             | The title of the card.                                                                                                                                                                                                                |
+| `hours_to_show`    | number | `24`                             | The number of hours of history to display in the graphs.                                                                                                                                                                              |
+| `line_width`       | number | `3`                              | The width of the graph line in pixels.                                                                                                                                                                                                |
+| `line_opacity`     | number | `0.2`                            | The opacity of the graph line (from 0.1 to 0.8).                                                                                                                                                                                      |
+| `line_color`       | string | `white` (dark) / `black` (light) | The color of the graph line. Can be any valid CSS color. Ignored if `color_thresholds` is used.                                                                                                                                       |
+| `line_length`      | string | `long`                           | The length of the graph. Can be `long` or `short`. `short` provides more space for the entity value.                                                                                                                                  |
+| `color_thresholds` | list   | `[]`                             | A list of color thresholds to create a gradient line. See Advanced Example.                                                                                                                                                           |
+| `points_per_hour`  | number | `1`                              | The number of time buckets per hour. The card calculates the median value for each bucket and fills in any gaps with the last known value to create a continuous graph. Higher values provide more detail but may impact performance. |
+| `update_interval`  | number | `600`                            | How often to fetch history data, in seconds (e.g., 600 = 10 minutes).                                                                                                                                                                 |
+
+#### Entity Options
+
+Each entry in the `entities` list can be a string (the entity ID) or an object with more specific configurations.
+
+| Name                         | Type    | Default                   | Description                                                                              |
+| ---------------------------- | ------- | ------------------------- | ---------------------------------------------------------------------------------------- |
+| `entity`                     | string  | **Required**              | The ID of the entity to display.                                                         |
+| `name`                       | string  | Entity's friendly name    | A custom name for the entity.                                                            |
+| `icon`                       | string  | Entity's icon             | A custom icon for the entity (e.g., `mdi:thermometer`).                                  |
+| `overwrite_graph_appearance` | boolean | `false`                   | (UI Editor Helper) When enabled, allows you to set entity-specific graph settings below. |
+| `line_color`                 | string  | Global `line_color`       | Overrides the global `line_color` for this entity only.                                  |
+| `line_opacity`               | number  | Global `line_opacity`     | Overrides the global `line_opacity` for this entity only.                                |
+| `color_thresholds`           | list    | Global `color_thresholds` | Overrides the global `color_thresholds` for this entity only.                            |
+
+### Examples
+
+#### 1. Minimal Configuration
+
+The simplest way to use the card is by providing a list of entity IDs.
 
 ```yaml
 type: custom:background-graph-entities
 entities:
-  - entity: sensor.temperature_outside
-    name: Temperature Outside
+  - sensor.outside_temperature
+  - sensor.living_room_humidity
+```
+
+#### 2. Basic Configuration
+
+This example sets a title and customizes the appearance of all graphs.
+
+```yaml
+type: custom:background-graph-entities
+title: Office Sensors
+hours_to_show: 48
+line_width: 2
+line_color: 'var(--primary-color)'
+line_opacity: 0.3
+entities:
+  - entity: sensor.office_temperature
+    name: Temperature
     icon: mdi:thermometer
-  - entity: sensor.temperature_sensor_average_inside
-    name: Temperature Average Inside
+  - entity: sensor.office_humidity
+    name: Humidity
+    icon: mdi:water-percent
 ```
 
-### Configuration Options
+#### 3. Advanced Configuration with Overrides
 
-- **entities**: A list of entity configurations.
-  - **entity**: The entity ID.
-  - **name** (optional): The display name of the entity.
-  - **icon** (optional): The icon for the entity. Can be overwritten with [material design icons](https://pictogrammers.com/library/mdi/)<br>e.g.: `mdi:alert`
-- **hoursToShow** (optional): Number of hours to show in the mini graph. Defaults to 24.
-- **title** (optional): A title for the card.
-- **line_length** (optional): Length of the line in the mini graph. Default is `long` the other option is `short`.
-- **line_color** (optional): Color of the line in the mini graph. Defaults to `white` in dark mode and `black` in light mode.
-- **line_opacity** (optional): Opacity of the mini graph line. The editor provides a slider from 0.1 to 0.8. Default is `0.2`.
-- **line_width** (optional): Width of the line in the mini graph in pixels. Default is `3`.
-- **color_thresholds** (optional): A list of color thresholds for the graph line. This will create a gradient. If used, `line_color` is ignored.
-  - **value**: The threshold value.
-  - **color**: The color for this threshold.
-- **points_per_hour** (optional): How many data points to average into a single point per hour. Default is `1`.
-- **update_interval** (optional): How often to fetch history data in seconds. Default is `600` (10 minutes).
-
-### Example
-
-#### Simplified Configuration _(from v0.0.7)_
-
-For a quicker setup, you can also provide a simple list of entity IDs directly. The card will use the entity's default name.
+This example demonstrates how to use global settings and override them for specific entities.
 
 ```yaml
 type: custom:background-graph-entities
+title: Advanced Sensor Graphs
+hours_to_show: 72
+line_color: '#9da0a2' # A default grey color for graphs
+line_width: 2
+line_opacity: 0.2
 entities:
-  - sensor.my_sensor
-  - sensor.another_sensor
-```
+  # This entity uses the global settings
+  - entity: sensor.living_room_temperature
 
-#### Full config example
+  # This entity has its own line color and opacity
+  - entity: sensor.bedroom_temperature
+    line_color: '#3498db' # blue
+    line_opacity: 0.5
 
-```yaml
-type: custom:background-graph-entities
-title: Travel Times
-entities:
-  - entity: sensor.travel_time_to_nyc
-    name: New York City
-  - entity: sensor.temperature_sensor_average_inside
-    name: Temperature Average Inside
-    icon: mdi:home-thermometer
-hoursToShow: 24
-line_width: 3
+  # This entity uses color thresholds, which creates a gradient
+  - entity: sensor.co2_level
+    name: CO2 Level
+    color_thresholds:
+      - value: 400
+        color: '#2ecc71' # green
+      - value: 1000
+        color: '#f1c40f' # yellow
+      - value: 2000
+        color: '#e74c3c' # red
 ```
 
 ## Development
