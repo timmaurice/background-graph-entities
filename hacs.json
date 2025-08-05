@@ -2,8 +2,5 @@
   "name": "Background Graph Entities",
   "content_in_root": false,
   "render_readme": true,
-  "filename": "dist/background-graph-entities.js",
-  "documentation_url": "https://github.com/timmaurice/lovelace-background-graph-entities",
-  "issue_tracker": "https://github.com/timmaurice/lovelace-background-graph-entities/issues",
-  "keywords": ["lovelace", "dashboard", "ui", "graph", "entities", "background", "visualization"]
+  "filename": "background-graph-entities.js"
 }
