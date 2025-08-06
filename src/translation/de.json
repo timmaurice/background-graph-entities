@@ -25,6 +25,11 @@
     "add_entity": "Entität hinzufügen",
     "optional_overrides": "Optionale Überschreibungen",
     "name": "Name",
-    "icon": "Icon"
+    "icon": "Icon",
+    "line_glow": "Leuchteffekt",
+    "curve": "Kurventyp",
+    "curve_spline": "Spline",
+    "curve_linear": "Linear",
+    "curve_step": "Stufe"
   }
 }

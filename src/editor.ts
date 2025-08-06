@@ -17,10 +17,11 @@ type EditorInternalConfig = Omit<BackgroundGraphEntitiesConfig, 'entities' | 'co
   color_thresholds: ColorThreshold[];
 };
 
-interface ValueChangedEventTarget extends EventTarget {
+interface ValueChangedEventTarget extends HTMLElement {
   configValue?: keyof EditorInternalConfig;
   value: string | number;
   type?: string;
+  checked?: boolean;
 }
 
 interface ColorPicker extends HTMLElement {
@@ -136,13 +137,19 @@ export class BackgroundGraphEntitiesEditor extends LitElement implements Lovelac
     if (!configValue || !this._config) return;
 
     const newConfig = { ...this._config };
-    let value: string | number | undefined = target.value;
+    let value: string | number | boolean | undefined;
+
+    if (target.tagName?.toLowerCase() === 'ha-switch') {
+      value = target.checked;
+    } else {
+      value = target.value;
+    }
 
     if (target.type === 'number') {
       value = target.value === '' ? undefined : Number(target.value);
     }
 
-    if (value === undefined || (typeof value === 'number' && isNaN(value))) {
+    if (value === false || value === undefined || (typeof value === 'number' && isNaN(value))) {
       delete newConfig[configValue];
     } else {
       newConfig[configValue] = value;
@@ -734,7 +741,26 @@ export class BackgroundGraphEntitiesEditor extends LitElement implements Lovelac
               >${localize(this.hass, 'component.bge.editor.line_length_short')}</mwc-list-item
             >
           </ha-select>
+          <ha-select
+            .label=${localize(this.hass, 'component.bge.editor.curve')}
+            .value=${this._config.curve || 'spline'}
+            .configValue=${'curve'}
+            @selected=${this._valueChanged}
+            @closed=${(ev: Event) => ev.stopPropagation()}
+          >
+            <mwc-list-item value="spline">${localize(this.hass, 'component.bge.editor.curve_spline')}</mwc-list-item>
+            <mwc-list-item value="linear">${localize(this.hass, 'component.bge.editor.curve_linear')}</mwc-list-item>
+            <mwc-list-item value="step">${localize(this.hass, 'component.bge.editor.curve_step')}</mwc-list-item>
+          </ha-select>
         </div>
+
+        <ha-formfield .label=${localize(this.hass, 'component.bge.editor.line_glow')}>
+          <ha-switch
+            .checked=${this._config.line_glow === true}
+            .configValue=${'line_glow'}
+            @change=${this._valueChanged}
+          ></ha-switch>
+        </ha-formfield>
 
         <div class="opacity-slider-container">
           <div class="label-container">

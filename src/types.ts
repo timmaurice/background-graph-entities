@@ -25,6 +25,7 @@ export interface HassEntity {
 // A basic representation of a Lovelace card
 export interface LovelaceCard extends HTMLElement {
   hass?: HomeAssistant;
+  editMode?: boolean;
   setConfig(config: LovelaceCardConfig): void;
   getCardSize?(): number | Promise<number>;
 }
@@ -66,4 +67,6 @@ export interface BackgroundGraphEntitiesConfig extends LovelaceCardConfig {
   points_per_hour?: number;
   update_interval?: number;
   color_thresholds?: ColorThreshold[];
+  curve?: 'spline' | 'linear' | 'step';
+  line_glow?: boolean;
 }

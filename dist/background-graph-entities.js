@@ -3794,7 +3794,53 @@ function curveBasis(context) {
   return new Basis(context);
 }
 
-const styles$1 = i$3`.card-content{padding:16px}.card-content.short .graph-container{right:70px}.entity-row{align-items:center;cursor:pointer;display:flex;height:40px;margin-bottom:8px;position:relative}.entity-row:last-of-type{margin-bottom:0}.entity-icon{color:var(--primary-text-color);fill:currentColor;margin-right:8px;text-align:center;width:40px}.entity-name{z-index:1}.entity-value{color:var(--primary-text-color);margin-left:auto;z-index:1}.graph-container{position:absolute;bottom:0;left:45px;pointer-events:none;right:0;top:0}.graph-container svg{width:100%;height:100%}.graph-path{fill:none}`;
+function Step(context, t) {
+  this._context = context;
+  this._t = t;
+}
+
+Step.prototype = {
+  areaStart: function() {
+    this._line = 0;
+  },
+  areaEnd: function() {
+    this._line = NaN;
+  },
+  lineStart: function() {
+    this._x = this._y = NaN;
+    this._point = 0;
+  },
+  lineEnd: function() {
+    if (0 < this._t && this._t < 1 && this._point === 2) this._context.lineTo(this._x, this._y);
+    if (this._line || (this._line !== 0 && this._point === 1)) this._context.closePath();
+    if (this._line >= 0) this._t = 1 - this._t, this._line = 1 - this._line;
+  },
+  point: function(x, y) {
+    x = +x, y = +y;
+    switch (this._point) {
+      case 0: this._point = 1; this._line ? this._context.lineTo(x, y) : this._context.moveTo(x, y); break;
+      case 1: this._point = 2; // falls through
+      default: {
+        if (this._t <= 0) {
+          this._context.lineTo(this._x, y);
+          this._context.lineTo(x, y);
+        } else {
+          var x1 = this._x * (1 - this._t) + x * this._t;
+          this._context.lineTo(x1, this._y);
+          this._context.lineTo(x1, y);
+        }
+        break;
+      }
+    }
+    this._x = x, this._y = y;
+  }
+};
+
+function curveStep(context) {
+  return new Step(context, 0.5);
+}
+
+const styles$1 = i$3`.card-content{padding:16px}.card-content.short .graph-container{right:70px}.entity-row{align-items:center;cursor:pointer;display:flex;height:40px;margin-bottom:8px;position:relative}.entity-row:last-of-type{margin-bottom:0}.entity-icon{color:var(--primary-text-color);fill:currentColor;margin-right:8px;text-align:center;width:40px}.entity-name{z-index:1}.entity-value{color:var(--primary-text-color);margin-left:auto;z-index:1}.graph-container{bottom:0;left:45px;pointer-events:none;position:absolute;right:0;top:0}.graph-container svg{height:100%;width:100%}.graph-path{fill:none;stroke-linecap:round;stroke-linejoin:round}.graph-dot{opacity:0;transition:opacity .2s ease-in-out}.entity-row:hover .graph-dot{opacity:1}`;
 
 // Define the custom element name
 const ELEMENT_NAME = 'background-graph-entities';
@@ -3802,6 +3848,7 @@ console.info(`%c BACKGROUND-GRAPH-ENTITIES %c 1.0.1 `, 'color: orange; font-weig
 let BackgroundGraphEntities = class BackgroundGraphEntities extends i {
     constructor() {
         super(...arguments);
+        this.editMode = false;
         this._entities = [];
         this._history = new Map();
         this._historyFetched = false;
@@ -3863,10 +3910,22 @@ let BackgroundGraphEntities = class BackgroundGraphEntities extends i {
             this._historyFetched = true; // Prevent re-fetching on every subsequent update
             this._fetchAndStoreAllHistory();
         }
-        // Rerender graphs when history data changes.
-        if (changedProperties.has('_history')) {
+        // Rerender graphs when history data or edit mode changes.
+        if (changedProperties.has('_history') || changedProperties.has('editMode')) {
             // Defer rendering to the next frame to ensure the DOM is fully updated.
             requestAnimationFrame(() => this._renderAllGraphs());
+        }
+    }
+    _getCurveFactory() {
+        const curveType = this._config?.curve || 'spline';
+        switch (curveType) {
+            case 'linear':
+                return curveLinear;
+            case 'step':
+                return curveStep;
+            case 'spline':
+            default:
+                return curveBasis;
         }
     }
     _renderAllGraphs() {
@@ -3926,6 +3985,41 @@ let BackgroundGraphEntities = class BackgroundGraphEntities extends i {
         }
         // Fallback to global line color, then default.
         return this._config.line_color ?? defaultColor;
+    }
+    _getDotColor(value, entityConfig) {
+        const isDarkMode = this.hass.themes?.darkMode ?? false;
+        const defaultColor = isDarkMode ? 'white' : 'black';
+        let thresholds;
+        let lineColor;
+        if (entityConfig?.overwrite_graph_appearance) {
+            thresholds = entityConfig.color_thresholds;
+            lineColor = entityConfig.line_color;
+        }
+        // If no entity-specific override, use global settings
+        if (thresholds === undefined) {
+            thresholds = this._config.color_thresholds;
+        }
+        if (lineColor === undefined) {
+            lineColor = this._config.line_color;
+        }
+        // Use thresholds if available
+        if (thresholds && thresholds.length > 0) {
+            const sortedThresholds = [...thresholds].sort((a, b) => a.value - b.value);
+            // Find the last threshold that the value is greater than or equal to
+            let color = sortedThresholds[0].color; // Default to the lowest threshold color
+            for (const threshold of sortedThresholds) {
+                if (value >= threshold.value) {
+                    color = threshold.color;
+                }
+                else {
+                    // Since thresholds are sorted, we can stop.
+                    break;
+                }
+            }
+            return color;
+        }
+        // Fallback to line color, then default.
+        return lineColor ?? defaultColor;
     }
     getCardSize() {
         return this._config?.entities.length ? this._config.entities.length + 1 : 1;
@@ -4027,12 +4121,27 @@ let BackgroundGraphEntities = class BackgroundGraphEntities extends i {
             .append('svg')
             .attr('viewBox', `0 0 ${width} ${height}`)
             .attr('preserveAspectRatio', 'none');
+        const glowId = `bge-glow-${container.dataset.entityId}`;
+        if (this._config.line_glow) {
+            const defs = svg.append('defs');
+            const filter = defs
+                .append('filter')
+                .attr('id', glowId)
+                .attr('x', '-50%')
+                .attr('y', '-50%')
+                .attr('width', '200%')
+                .attr('height', '200%');
+            filter.append('feGaussianBlur').attr('stdDeviation', 2.5).attr('result', 'coloredBlur');
+            const merge = filter.append('feMerge');
+            merge.append('feMergeNode').attr('in', 'coloredBlur');
+            merge.append('feMergeNode').attr('in', 'SourceGraphic');
+        }
         const gradientId = `bge-gradient-${container.dataset.entityId}`;
         const strokeColor = this._setupGradient(svg, yScale, gradientId, entityConfig);
         const lineGenerator = d3Line()
             .x((d) => xScale(d.timestamp))
             .y((d) => yScale(d.value))
-            .curve(curveBasis);
+            .curve(this._getCurveFactory());
         svg
             .append('path')
             .datum(processedHistory)
@@ -4042,7 +4151,23 @@ let BackgroundGraphEntities = class BackgroundGraphEntities extends i {
             .attr('stroke-opacity', entityConfig?.overwrite_graph_appearance && entityConfig.line_opacity !== undefined
             ? entityConfig.line_opacity
             : (this._config?.line_opacity ?? 0.2))
-            .attr('stroke-width', this._config?.line_width || 3);
+            .attr('stroke-width', this._config?.line_width || 3)
+            .attr('filter', this._config.line_glow ? `url(#${glowId})` : null);
+        // The first point in history is an anchor at the start time, not a bucket.
+        // We only want to show dots for the actual data buckets.
+        const dotData = history.slice(1);
+        if (this.editMode) {
+            svg
+                .selectAll('.graph-dot')
+                .data(dotData)
+                .enter()
+                .append('circle')
+                .attr('class', 'graph-dot')
+                .attr('cx', (d) => xScale(d.timestamp))
+                .attr('cy', (d) => yScale(d.value))
+                .attr('r', 2)
+                .attr('fill', (d) => this._getDotColor(d.value, entityConfig));
+        }
     }
     async _fetchAndStoreAllHistory() {
         if (this._entities.length === 0) {
@@ -4165,15 +4290,14 @@ let BackgroundGraphEntities = class BackgroundGraphEntities extends i {
     }
     static { this.styles = i$3 `
     ${r$4(styles$1)}
-    .graph-path {
-      stroke-linecap: round;
-      stroke-linejoin: round;
-    }
   `; }
 };
 __decorate([
     n({ attribute: false })
 ], BackgroundGraphEntities.prototype, "hass", void 0);
+__decorate([
+    n({ type: Boolean, reflect: true })
+], BackgroundGraphEntities.prototype, "editMode", void 0);
 __decorate([
     r()
 ], BackgroundGraphEntities.prototype, "_config", void 0);
@@ -4195,9 +4319,9 @@ if (typeof window !== 'undefined') {
     });
 }
 
-var editor$2={general:"Allgemein",title:"Titel (Optional)",graph_appearance:"Graph-Darstellung",hours_to_show:"Stunden zum Anzeigen",line_width:"Linienbreite",line_length:"Linienlänge",line_length_long:"Lang",line_length_short:"Kurz",line_color:"Linienfarbe",line_opacity:"Linienopazität",color_mode:"Farbmodus",color_mode_single:"Einzelfarbe",color_mode_threshold:"Schwellenwerte",color_thresholds:"Farbschwellenwerte",add_threshold:"Schwellenwert hinzufügen",value:"Wert",color:"Farbe",data_settings:"Dateneinstellungen",points_per_hour:"Punkte pro Stunde",update_interval:"Aktualisierungsintervall (Sekunden)",entities:"Entitäten",entity:"Entität",add_entity:"Entität hinzufügen",optional_overrides:"Optionale Überschreibungen",name:"Name",icon:"Icon"};var de = {editor:editor$2};
+var editor$2={general:"Allgemein",title:"Titel (Optional)",graph_appearance:"Graph-Darstellung",hours_to_show:"Stunden zum Anzeigen",line_width:"Linienbreite",line_length:"Linienlänge",line_length_long:"Lang",line_length_short:"Kurz",line_color:"Linienfarbe",line_opacity:"Linienopazität",color_mode:"Farbmodus",color_mode_single:"Einzelfarbe",color_mode_threshold:"Schwellenwerte",color_thresholds:"Farbschwellenwerte",add_threshold:"Schwellenwert hinzufügen",value:"Wert",color:"Farbe",data_settings:"Dateneinstellungen",points_per_hour:"Punkte pro Stunde",update_interval:"Aktualisierungsintervall (Sekunden)",entities:"Entitäten",entity:"Entität",add_entity:"Entität hinzufügen",optional_overrides:"Optionale Überschreibungen",name:"Name",icon:"Icon",line_glow:"Leuchteffekt",curve:"Kurventyp",curve_spline:"Spline",curve_linear:"Linear",curve_step:"Stufe"};var de = {editor:editor$2};
 
-var editor$1={general:"General",title:"Title (Optional)",graph_appearance:"Graph Appearance",hours_to_show:"Hours To Show",line_width:"Line Width",line_length:"Line Length",line_length_long:"Long",line_length_short:"Short",line_color:"Line Color",line_opacity:"Line Opacity",color_mode:"Color Mode",color_mode_single:"Single Color",color_mode_threshold:"Thresholds",color_thresholds:"Color Thresholds",add_threshold:"Add Threshold",value:"Value",color:"Color",data_settings:"Data Settings",points_per_hour:"Points per Hour",update_interval:"Update Interval (seconds)",entities:"Entities",entity:"Entity",add_entity:"Add Entity",optional_overrides:"Optional Overrides",name:"Name",icon:"Icon"};var en = {editor:editor$1};
+var editor$1={general:"General",title:"Title (Optional)",graph_appearance:"Graph Appearance",hours_to_show:"Hours To Show",line_width:"Line Width",line_length:"Line Length",line_length_long:"Long",line_length_short:"Short",line_color:"Line Color",line_opacity:"Line Opacity",line_glow:"Line Glow",color_mode:"Color Mode",color_mode_single:"Single Color",color_mode_threshold:"Thresholds",color_thresholds:"Color Thresholds",add_threshold:"Add Threshold",value:"Value",color:"Color",data_settings:"Data Settings",points_per_hour:"Points per Hour",update_interval:"Update Interval (seconds)",entities:"Entities",entity:"Entity",add_entity:"Add Entity",optional_overrides:"Optional Overrides",name:"Name",icon:"Icon",curve:"Curve Type",curve_spline:"Spline",curve_linear:"Linear",curve_step:"Step"};var en = {editor:editor$1};
 
 const translations = {
     de,
@@ -4242,7 +4366,7 @@ const fireEvent = (node, type, detail, options) => {
     node.dispatchEvent(event);
 };
 
-const styles = i$3`.color-input-wrapper{position:relative;flex:1}.color-picker-popup{position:absolute;top:100%;left:0;z-index:10;padding:8px;background-color:var(--card-background-color, white);border:1px solid var(--divider-color);border-radius:var(--ha-card-border-radius, 4px);box-shadow:0px 5px 5px -3px rgba(0,0,0,.2),0px 8px 10px 1px rgba(0,0,0,.14),0px 3px 14px 2px rgba(0,0,0,.12)}.color-picker-popup rgb-string-color-picker{width:200px;height:200px}.color-preview{width:28px;height:28px;border-radius:4px;border:1px solid var(--divider-color);cursor:pointer;box-sizing:border-box}.card-config{display:flex;flex-direction:column;gap:16px}.color-picker-popup{display:none}.side-by-side{display:flex;gap:16px}.side-by-side>*{flex:1}.entities-container{display:flex;flex-direction:column;gap:12px}.entity-container{align-items:center;border:1px solid var(--divider-color);border-radius:var(--ha-card-border-radius, 4px);display:flex;gap:8px;padding:8px;transition:border-color .2s ease-in-out,box-shadow .2s ease-in-out,background-color .2s ease-in-out}.entity-container.dragging{background:var(--secondary-background-color);opacity:.5}.entity-container.drag-over{border-color:var(--primary-color);border-style:dashed;box-shadow:0 0 5px var(--primary-color)}.drag-handle{color:var(--secondary-text-color);cursor:move}.entity-content{flex-grow:1}.entity-main{align-items:center;display:flex;gap:8px}.entity-main ha-entity-picker{flex-grow:1}ha-expansion-panel{--expansion-panel-content-padding: 0;margin-top:8px}ha-expansion-panel[outlined][expanded]{--ha-card-background: var(--secondary-background-color)}.overrides{display:flex;flex-direction:column;gap:16px;padding:16px}pre{background:var(--secondary-background-color);border-radius:var(--ha-card-border-radius, 4px);font-size:12px;padding:8px;white-space:pre-wrap;word-break:break-all}.threshold-container{align-items:center;display:flex;gap:8px}.threshold-container .threshold-inputs{align-items:flex-end;display:flex;flex-grow:1;gap:16px}.color-input-wrapper{align-items:center;display:flex;gap:8px}.color-input-wrapper ha-textfield{flex-grow:1}.color-preview{border:1px solid var(--divider-color);border-radius:4px;box-sizing:border-box;cursor:pointer;flex-shrink:0;height:28px;width:28px}.opacity-slider-container{display:flex;flex-direction:column;width:100%}.label-container{color:var(--secondary-text-color);display:flex;font-size:12px;justify-content:space-between;margin-bottom:-8px;margin-left:3px}.header{align-items:center;display:flex;gap:8px;margin-bottom:16px}.header .title{font-size:1.2em;font-weight:500}`;
+const styles = i$3`.color-input-wrapper{position:relative;flex:1}.color-picker-popup{position:absolute;top:100%;left:0;z-index:10;padding:8px;background-color:var(--card-background-color, white);border:1px solid var(--divider-color);border-radius:var(--ha-card-border-radius, 4px);box-shadow:0px 5px 5px -3px rgba(0,0,0,.2),0px 8px 10px 1px rgba(0,0,0,.14),0px 3px 14px 2px rgba(0,0,0,.12)}.color-picker-popup rgb-string-color-picker{width:200px;height:200px}.color-preview{width:28px;height:28px;border-radius:4px;border:1px solid var(--divider-color);cursor:pointer;box-sizing:border-box}.card-config{display:flex;flex-direction:column;gap:16px}.color-picker-popup{display:none}.side-by-side{display:flex;gap:16px}.side-by-side>*{flex:1}.entities-container{display:flex;flex-direction:column;gap:12px}.entity-container{align-items:center;border:1px solid var(--divider-color);border-radius:var(--ha-card-border-radius, 4px);display:flex;gap:8px;padding:8px;transition:border-color .2s ease-in-out,box-shadow .2s ease-in-out,background-color .2s ease-in-out}.entity-container.dragging{background:var(--secondary-background-color);opacity:.5}.entity-container.drag-over{border-color:var(--primary-color);border-style:dashed;box-shadow:0 0 5px var(--primary-color)}.drag-handle{color:var(--secondary-text-color);cursor:move}.entity-content{flex-grow:1}.entity-main{align-items:center;display:flex;gap:8px}.entity-main ha-entity-picker{flex-grow:1;max-width:calc(100% - 160px)}ha-expansion-panel{--expansion-panel-content-padding: 0;margin-top:8px}ha-expansion-panel[outlined][expanded]{--ha-card-background: var(--secondary-background-color)}.overrides{display:flex;flex-direction:column;gap:16px;padding:16px}pre{background:var(--secondary-background-color);border-radius:var(--ha-card-border-radius, 4px);font-size:12px;padding:8px;white-space:pre-wrap;word-break:break-all}.threshold-container{align-items:center;display:flex;gap:8px}.threshold-container .threshold-inputs{align-items:flex-end;display:flex;flex-grow:1;gap:16px}.color-input-wrapper{align-items:center;display:flex;gap:8px}.color-input-wrapper ha-textfield{flex-grow:1}.color-preview{border:1px solid var(--divider-color);border-radius:4px;box-sizing:border-box;cursor:pointer;flex-shrink:0;height:28px;width:28px}.opacity-slider-container{display:flex;flex-direction:column;width:100%}.label-container{color:var(--secondary-text-color);display:flex;font-size:12px;justify-content:space-between;margin-bottom:-8px;margin-left:3px}.header{align-items:center;display:flex;gap:8px;margin-bottom:16px}.header .title{font-size:1.2em;font-weight:500}`;
 
 // Clamps a value between an upper and lower bound.
 // We use ternary operators because it makes the minified code
@@ -4701,11 +4825,17 @@ let BackgroundGraphEntitiesEditor = class BackgroundGraphEntitiesEditor extends 
         if (!configValue || !this._config)
             return;
         const newConfig = { ...this._config };
-        let value = target.value;
+        let value;
+        if (target.tagName?.toLowerCase() === 'ha-switch') {
+            value = target.checked;
+        }
+        else {
+            value = target.value;
+        }
         if (target.type === 'number') {
             value = target.value === '' ? undefined : Number(target.value);
         }
-        if (value === undefined || (typeof value === 'number' && isNaN(value))) {
+        if (value === false || value === undefined || (typeof value === 'number' && isNaN(value))) {
             delete newConfig[configValue];
         }
         else {
@@ -5238,7 +5368,26 @@ let BackgroundGraphEntitiesEditor = class BackgroundGraphEntitiesEditor extends 
               >${localize(this.hass, 'component.bge.editor.line_length_short')}</mwc-list-item
             >
           </ha-select>
+          <ha-select
+            .label=${localize(this.hass, 'component.bge.editor.curve')}
+            .value=${this._config.curve || 'spline'}
+            .configValue=${'curve'}
+            @selected=${this._valueChanged}
+            @closed=${(ev) => ev.stopPropagation()}
+          >
+            <mwc-list-item value="spline">${localize(this.hass, 'component.bge.editor.curve_spline')}</mwc-list-item>
+            <mwc-list-item value="linear">${localize(this.hass, 'component.bge.editor.curve_linear')}</mwc-list-item>
+            <mwc-list-item value="step">${localize(this.hass, 'component.bge.editor.curve_step')}</mwc-list-item>
+          </ha-select>
         </div>
+
+        <ha-formfield .label=${localize(this.hass, 'component.bge.editor.line_glow')}>
+          <ha-switch
+            .checked=${this._config.line_glow === true}
+            .configValue=${'line_glow'}
+            @change=${this._valueChanged}
+          ></ha-switch>
+        </ha-formfield>
 
         <div class="opacity-slider-container">
           <div class="label-container">

@@ -1,2 +1,8 @@
+# Dependencies
+/node_modules
+
+# Lockfiles for other package managers
 bun.lock
-node_modules/
+yarn.lock
+
+.DS_Store

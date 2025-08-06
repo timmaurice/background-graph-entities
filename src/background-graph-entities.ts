@@ -12,7 +12,7 @@ import {
 import { extent } from 'd3-array';
 import { scaleLinear, scaleTime, ScaleLinear } from 'd3-scale';
 import { select, Selection } from 'd3-selection';
-import { line as d3Line, curveBasis } from 'd3-shape';
+import { line as d3Line, curveBasis, curveLinear, curveStep } from 'd3-shape';
 import styles from './styles/card.styles.scss';
 
 // Define the custom element name
@@ -50,6 +50,7 @@ type LovelaceCardConstructor = {
 @customElement(ELEMENT_NAME)
 export class BackgroundGraphEntities extends LitElement implements LovelaceCard {
   @property({ attribute: false }) public hass!: HomeAssistant;
+  @property({ type: Boolean, reflect: true }) public editMode = false;
   @state() private _config!: BackgroundGraphEntitiesConfig;
   @state() private _entities: EntityConfig[] = [];
   @state() private _history: Map<string, { timestamp: Date; value: number }[]> = new Map();
@@ -124,10 +125,23 @@ export class BackgroundGraphEntities extends LitElement implements LovelaceCard 
       this._fetchAndStoreAllHistory();
     }
 
-    // Rerender graphs when history data changes.
-    if (changedProperties.has('_history')) {
+    // Rerender graphs when history data or edit mode changes.
+    if (changedProperties.has('_history') || changedProperties.has('editMode')) {
       // Defer rendering to the next frame to ensure the DOM is fully updated.
       requestAnimationFrame(() => this._renderAllGraphs());
+    }
+  }
+
+  private _getCurveFactory() {
+    const curveType = this._config?.curve || 'spline';
+    switch (curveType) {
+      case 'linear':
+        return curveLinear;
+      case 'step':
+        return curveStep;
+      case 'spline':
+      default:
+        return curveBasis;
     }
   }
 
@@ -205,6 +219,46 @@ export class BackgroundGraphEntities extends LitElement implements LovelaceCard 
 
     // Fallback to global line color, then default.
     return this._config.line_color ?? defaultColor;
+  }
+
+  private _getDotColor(value: number, entityConfig?: EntityConfig): string {
+    const isDarkMode = this.hass.themes?.darkMode ?? false;
+    const defaultColor = isDarkMode ? 'white' : 'black';
+
+    let thresholds: ColorThreshold[] | undefined;
+    let lineColor: string | undefined;
+
+    if (entityConfig?.overwrite_graph_appearance) {
+      thresholds = entityConfig.color_thresholds;
+      lineColor = entityConfig.line_color;
+    }
+
+    // If no entity-specific override, use global settings
+    if (thresholds === undefined) {
+      thresholds = this._config.color_thresholds;
+    }
+    if (lineColor === undefined) {
+      lineColor = this._config.line_color;
+    }
+
+    // Use thresholds if available
+    if (thresholds && thresholds.length > 0) {
+      const sortedThresholds = [...thresholds].sort((a, b) => a.value - b.value);
+      // Find the last threshold that the value is greater than or equal to
+      let color = sortedThresholds[0].color; // Default to the lowest threshold color
+      for (const threshold of sortedThresholds) {
+        if (value >= threshold.value) {
+          color = threshold.color;
+        } else {
+          // Since thresholds are sorted, we can stop.
+          break;
+        }
+      }
+      return color;
+    }
+
+    // Fallback to line color, then default.
+    return lineColor ?? defaultColor;
   }
 
   public getCardSize(): number {
@@ -329,13 +383,31 @@ export class BackgroundGraphEntities extends LitElement implements LovelaceCard 
       .attr('viewBox', `0 0 ${width} ${height}`)
       .attr('preserveAspectRatio', 'none');
 
+    const glowId = `bge-glow-${container.dataset.entityId}`;
+    if (this._config.line_glow) {
+      const defs = svg.append('defs');
+      const filter = defs
+        .append('filter')
+        .attr('id', glowId)
+        .attr('x', '-50%')
+        .attr('y', '-50%')
+        .attr('width', '200%')
+        .attr('height', '200%');
+
+      filter.append('feGaussianBlur').attr('stdDeviation', 2.5).attr('result', 'coloredBlur');
+
+      const merge = filter.append('feMerge');
+      merge.append('feMergeNode').attr('in', 'coloredBlur');
+      merge.append('feMergeNode').attr('in', 'SourceGraphic');
+    }
+
     const gradientId = `bge-gradient-${container.dataset.entityId}`;
     const strokeColor = this._setupGradient(svg, yScale, gradientId, entityConfig);
 
     const lineGenerator = d3Line<{ timestamp: Date; value: number }>()
       .x((d) => xScale(d.timestamp))
       .y((d) => yScale(d.value))
-      .curve(curveBasis);
+      .curve(this._getCurveFactory());
 
     svg
       .append('path')
@@ -349,7 +421,24 @@ export class BackgroundGraphEntities extends LitElement implements LovelaceCard 
           ? entityConfig.line_opacity
           : (this._config?.line_opacity ?? 0.2),
       )
-      .attr('stroke-width', this._config?.line_width || 3);
+      .attr('stroke-width', this._config?.line_width || 3)
+      .attr('filter', this._config.line_glow ? `url(#${glowId})` : null);
+
+    // The first point in history is an anchor at the start time, not a bucket.
+    // We only want to show dots for the actual data buckets.
+    const dotData = history.slice(1);
+    if (this.editMode) {
+      svg
+        .selectAll('.graph-dot')
+        .data(dotData)
+        .enter()
+        .append('circle')
+        .attr('class', 'graph-dot')
+        .attr('cx', (d) => xScale(d.timestamp))
+        .attr('cy', (d) => yScale(d.value))
+        .attr('r', 2)
+        .attr('fill', (d) => this._getDotColor(d.value, entityConfig));
+    }
   }
 
   private async _fetchAndStoreAllHistory(): Promise<void> {
@@ -491,10 +580,6 @@ export class BackgroundGraphEntities extends LitElement implements LovelaceCard 
 
   static styles = css`
     ${unsafeCSS(styles)}
-    .graph-path {
-      stroke-linecap: round;
-      stroke-linejoin: round;
-    }
   `;
 }
 

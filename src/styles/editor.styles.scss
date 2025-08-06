@@ -69,6 +69,7 @@
 
 .entity-main ha-entity-picker {
   flex-grow: 1;
+  max-width: calc(100% - 160px);
 }
 
 ha-expansion-panel {

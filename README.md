@@ -19,15 +19,17 @@ The `background-graph-entities` custom component for Home Assistant displays a l
 
 ## Features
 
-- **Dynamic Background Graphs:** Each entity row features a beautiful, live-updating graph of its history as a background.
+- **Dynamic Background Graphs:** Each entity row features a beautiful, live-updating graph of its history as a background, with smooth, rounded lines.
 - **Highly Customizable:**
   - **Global & Per-Entity Styling:** Configure graph appearance globally or override settings for each entity individually.
   - **Dynamic Line Colors:** Use a single color or define value-based thresholds to create stunning color gradients.
-  - **Adjustable Graph Appearance:** Control line width and opacity to match your dashboard's theme.
+  - **Adjustable Graph Appearance:** Control line width, opacity, and an optional glow effect to match your dashboard's theme.
+  - **Multiple Curve Styles:** Choose between `spline` (default), `linear`, or `step` curves to customize the graph's appearance.
 - **Powerful UI Editor:** A user-friendly editor makes configuration a breeze.
   - **Drag & Drop:** Easily reorder entities and color thresholds.
   - **Live Previews:** See your changes instantly.
   - **Color Pickers:** Choose colors with ease.
+- **Interactive Editing:** Dots appear on the graph only in edit mode, helping you visualize the data points without cluttering the normal view.
 - **Performance-Tuned:**
   - **Data Downsampling:** Configure `points_per_hour` to show smooth graphs over long periods without slowing down your browser.
   - **Configurable Update Interval:** Control how often data is fetched.
@@ -63,18 +65,20 @@ The card is fully configurable through the UI editor.
 
 #### Card Options
 
-| Name               | Type   | Default                          | Description                                                                                                                                                                                                                           |
-| ------------------ | ------ | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `type`             | string | **Required**                     | `custom:background-graph-entities`                                                                                                                                                                                                    |
-| `title`            | string | `''`                             | The title of the card.                                                                                                                                                                                                                |
-| `hours_to_show`    | number | `24`                             | The number of hours of history to display in the graphs.                                                                                                                                                                              |
-| `line_width`       | number | `3`                              | The width of the graph line in pixels.                                                                                                                                                                                                |
-| `line_opacity`     | number | `0.2`                            | The opacity of the graph line (from 0.1 to 0.8).                                                                                                                                                                                      |
-| `line_color`       | string | `white` (dark) / `black` (light) | The color of the graph line. Can be any valid CSS color. Ignored if `color_thresholds` is used.                                                                                                                                       |
-| `line_length`      | string | `long`                           | The length of the graph. Can be `long` or `short`. `short` provides more space for the entity value.                                                                                                                                  |
-| `color_thresholds` | list   | `[]`                             | A list of color thresholds to create a gradient line. See Advanced Example.                                                                                                                                                           |
-| `points_per_hour`  | number | `1`                              | The number of time buckets per hour. The card calculates the median value for each bucket and fills in any gaps with the last known value to create a continuous graph. Higher values provide more detail but may impact performance. |
-| `update_interval`  | number | `600`                            | How often to fetch history data, in seconds (e.g., 600 = 10 minutes).                                                                                                                                                                 |
+| Name               | Type    | Default                          | Description                                                                                                                                                                                                                           |
+| ------------------ | ------- | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `type`             | string  | **Required**                     | `custom:background-graph-entities`                                                                                                                                                                                                    |
+| `title`            | string  | `''`                             | The title of the card.                                                                                                                                                                                                                |
+| `hours_to_show`    | number  | `24`                             | The number of hours of history to display in the graphs.                                                                                                                                                                              |
+| `line_width`       | number  | `3`                              | The width of the graph line in pixels.                                                                                                                                                                                                |
+| `line_opacity`     | number  | `0.2`                            | The opacity of the graph line (from 0.1 to 0.8).                                                                                                                                                                                      |
+| `line_color`       | string  | `white` (dark) / `black` (light) | The color of the graph line. Can be any valid CSS color. Ignored if `color_thresholds` is used.                                                                                                                                       |
+| `line_length`      | string  | `long`                           | The length of the graph. Can be `long` or `short`. `short` provides more space for the entity value.                                                                                                                                  |
+| `line_glow`        | boolean | `false`                          | Adds a subtle glow effect to the graph line.                                                                                                                                                                                          |
+| `curve`            | string  | `spline`                         | The interpolation type for the graph line. Can be `spline`, `linear`, or `step`.                                                                                                                                                      |
+| `color_thresholds` | list    | `[]`                             | A list of color thresholds to create a gradient line. See Advanced Example.                                                                                                                                                           |
+| `points_per_hour`  | number  | `1`                              | The number of time buckets per hour. The card calculates the median value for each bucket and fills in any gaps with the last known value to create a continuous graph. Higher values provide more detail but may impact performance. |
+| `update_interval`  | number  | `600`                            | How often to fetch history data, in seconds (e.g., 600 = 10 minutes).                                                                                                                                                                 |
 
 #### Entity Options
 
@@ -134,6 +138,8 @@ hours_to_show: 72
 line_color: '#9da0a2' # A default grey color for graphs
 line_width: 2
 line_opacity: 0.2
+curve: linear
+line_glow: true
 entities:
   # This entity uses the global settings
   - entity: sensor.living_room_temperature

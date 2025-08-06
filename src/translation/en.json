@@ -10,6 +10,7 @@
     "line_length_short": "Short",
     "line_color": "Line Color",
     "line_opacity": "Line Opacity",
+    "line_glow": "Line Glow",
     "color_mode": "Color Mode",
     "color_mode_single": "Single Color",
     "color_mode_threshold": "Thresholds",
@@ -25,6 +26,10 @@
     "add_entity": "Add Entity",
     "optional_overrides": "Optional Overrides",
     "name": "Name",
-    "icon": "Icon"
+    "icon": "Icon",
+    "curve": "Curve Type",
+    "curve_spline": "Spline",
+    "curve_linear": "Linear",
+    "curve_step": "Step"
   }
 }
