@@ -3798,15 +3798,15 @@ const styles$1 = i$3`.card-content{padding:16px}.card-content.short .graph-conta
 
 // Define the custom element name
 const ELEMENT_NAME = 'background-graph-entities';
-console.info(`%c BACKGROUND-GRAPH-ENTITIES %c 1.0.0 `, 'color: orange; font-weight: bold; background: black', 'color: white; font-weight: bold; background: dimgray');
+console.info(`%c BACKGROUND-GRAPH-ENTITIES %c 1.0.1 `, 'color: orange; font-weight: bold; background: black', 'color: white; font-weight: bold; background: dimgray');
 let BackgroundGraphEntities = class BackgroundGraphEntities extends i {
-    hass;
-    _config;
-    _entities = [];
-    _history = new Map();
-    _historyFetched = false;
-    _timerId;
-    _renderRetryMap = new Map();
+    constructor() {
+        super(...arguments);
+        this._entities = [];
+        this._history = new Map();
+        this._historyFetched = false;
+        this._renderRetryMap = new Map();
+    }
     setConfig(config) {
         if (!config || !config.entities || !Array.isArray(config.entities) || config.entities.length === 0) {
             throw new Error('You need to define at least one entity');
@@ -3863,23 +3863,17 @@ let BackgroundGraphEntities = class BackgroundGraphEntities extends i {
             this._historyFetched = true; // Prevent re-fetching on every subsequent update
             this._fetchAndStoreAllHistory();
         }
-        // Rerender on history change or on any hass update to keep the time axis current.
-        if (changedProperties.has('_history') || (changedProperties.has('hass') && this._historyFetched)) {
+        // Rerender graphs when history data changes.
+        if (changedProperties.has('_history')) {
             // Defer rendering to the next frame to ensure the DOM is fully updated.
             requestAnimationFrame(() => this._renderAllGraphs());
         }
     }
-    _renderAllGraphs(retryCount = 0) {
+    _renderAllGraphs() {
         // If the component is no longer connected to the DOM, stop.
         if (!this.isConnected)
             return;
-        const MAX_RETRIES = 10;
         const containers = this.renderRoot.querySelectorAll('.graph-container');
-        if (containers.length === 0) {
-            if (retryCount < MAX_RETRIES)
-                requestAnimationFrame(() => this._renderAllGraphs(retryCount + 1));
-            return;
-        }
         if (!this._config?.entities)
             return;
         containers.forEach((container) => {
@@ -4066,10 +4060,8 @@ let BackgroundGraphEntities = class BackgroundGraphEntities extends i {
                 newHistory.set(entityId, history);
             }
         });
-        const oldHistory = this._history;
         await Promise.all(historyPromises);
         this._history = newHistory;
-        this.requestUpdate('_history', oldHistory);
     }
     _downsampleHistory(states, hours, pointsPerHour) {
         if (pointsPerHour <= 0 || states.length === 0) {
@@ -4171,13 +4163,13 @@ let BackgroundGraphEntities = class BackgroundGraphEntities extends i {
       </ha-card>
     `;
     }
-    static styles = i$3 `
+    static { this.styles = i$3 `
     ${r$4(styles$1)}
     .graph-path {
       stroke-linecap: round;
       stroke-linejoin: round;
     }
-  `;
+  `; }
 };
 __decorate([
     n({ attribute: false })
@@ -4191,18 +4183,17 @@ __decorate([
 __decorate([
     r()
 ], BackgroundGraphEntities.prototype, "_history", void 0);
-__decorate([
-    r()
-], BackgroundGraphEntities.prototype, "_historyFetched", void 0);
 BackgroundGraphEntities = __decorate([
     t(ELEMENT_NAME)
 ], BackgroundGraphEntities);
-window.customCards = window.customCards || [];
-window.customCards.push({
-    type: ELEMENT_NAME,
-    name: 'Background Graph Entities',
-    description: 'A card to display entities with a background graph.',
-});
+if (typeof window !== 'undefined') {
+    window.customCards = window.customCards || [];
+    window.customCards.push({
+        type: ELEMENT_NAME,
+        name: 'Background Graph Entities',
+        description: 'A card to display entities with a background graph.',
+    });
+}
 
 var editor$2={general:"Allgemein",title:"Titel (Optional)",graph_appearance:"Graph-Darstellung",hours_to_show:"Stunden zum Anzeigen",line_width:"Linienbreite",line_length:"Linienlänge",line_length_long:"Lang",line_length_short:"Kurz",line_color:"Linienfarbe",line_opacity:"Linienopazität",color_mode:"Farbmodus",color_mode_single:"Einzelfarbe",color_mode_threshold:"Schwellenwerte",color_thresholds:"Farbschwellenwerte",add_threshold:"Schwellenwert hinzufügen",value:"Wert",color:"Farbe",data_settings:"Dateneinstellungen",points_per_hour:"Punkte pro Stunde",update_interval:"Aktualisierungsintervall (Sekunden)",entities:"Entitäten",entity:"Entität",add_entity:"Entität hinzufügen",optional_overrides:"Optionale Überschreibungen",name:"Name",icon:"Icon"};var de = {editor:editor$2};
 
@@ -4623,18 +4614,35 @@ class RgbStringColorPicker extends RgbStringBase {
 customElements.define('rgb-string-color-picker', RgbStringColorPicker);
 
 let BackgroundGraphEntitiesEditor = class BackgroundGraphEntitiesEditor extends i {
-    hass;
-    _config = {
-        type: 'custom:background-graph-entities',
-        entities: [],
-        color_thresholds: [],
-    };
-    _draggedIndex = null;
-    _dropIndex = null;
-    _draggedThresholdIndex = null;
-    _dropThresholdIndex = null;
-    _activeColorPicker = null;
-    _editingIndex = null;
+    constructor() {
+        super(...arguments);
+        this._config = {
+            type: 'custom:background-graph-entities',
+            entities: [],
+            color_thresholds: [],
+        };
+        this._draggedIndex = null;
+        this._dropIndex = null;
+        this._draggedThresholdIndex = null;
+        this._dropThresholdIndex = null;
+        this._activeColorPicker = null;
+        this._editingIndex = null;
+        this._handleOutsideClick = (ev) => {
+            if (!this._activeColorPicker) {
+                return;
+            }
+            const path = ev.composedPath();
+            // If the click was on any trigger or inside any popup, do nothing.
+            if (path.some((el) => el instanceof HTMLElement &&
+                (el.classList.contains('color-input-wrapper') || el.classList.contains('color-picker-popup')))) {
+                return;
+            }
+            // Otherwise, the click was outside, so close the picker.
+            const popups = this.renderRoot.querySelectorAll('.color-picker-popup');
+            popups.forEach((p) => (p.style.display = 'none'));
+            this._activeColorPicker = null;
+        };
+    }
     setConfig(config) {
         const entities = (config.entities || []).filter(Boolean).map((e) => (typeof e === 'string' ? { entity: e } : e));
         this._config = {
@@ -4652,21 +4660,6 @@ let BackgroundGraphEntitiesEditor = class BackgroundGraphEntitiesEditor extends 
         super.disconnectedCallback();
         document.removeEventListener('mousedown', this._handleOutsideClick);
     }
-    _handleOutsideClick = (ev) => {
-        if (!this._activeColorPicker) {
-            return;
-        }
-        const path = ev.composedPath();
-        // If the click was on any trigger or inside any popup, do nothing.
-        if (path.some((el) => el instanceof HTMLElement &&
-            (el.classList.contains('color-input-wrapper') || el.classList.contains('color-picker-popup')))) {
-            return;
-        }
-        // Otherwise, the click was outside, so close the picker.
-        const popups = this.renderRoot.querySelectorAll('.color-picker-popup');
-        popups.forEach((p) => (p.style.display = 'none'));
-        this._activeColorPicker = null;
-    };
     _toggleColorPicker(ev, pickerId) {
         ev.stopPropagation();
         const targetPopup = this.renderRoot.querySelector(`.color-picker-popup[data-picker-id="${pickerId}"]`);
@@ -5451,9 +5444,9 @@ let BackgroundGraphEntitiesEditor = class BackgroundGraphEntitiesEditor extends 
       </div>
     `;
     }
-    static styles = i$3 `
+    static { this.styles = i$3 `
     ${r$4(styles)}
-  `;
+  `; }
 };
 __decorate([
     n({ attribute: false })

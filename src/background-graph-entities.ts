@@ -53,7 +53,7 @@ export class BackgroundGraphEntities extends LitElement implements LovelaceCard 
   @state() private _config!: BackgroundGraphEntitiesConfig;
   @state() private _entities: EntityConfig[] = [];
   @state() private _history: Map<string, { timestamp: Date; value: number }[]> = new Map();
-  @state() private _historyFetched = false;
+  private _historyFetched = false;
   private _timerId?: number;
 
   private _renderRetryMap = new Map<HTMLElement, number>();
@@ -124,25 +124,18 @@ export class BackgroundGraphEntities extends LitElement implements LovelaceCard 
       this._fetchAndStoreAllHistory();
     }
 
-    // Rerender on history change or on any hass update to keep the time axis current.
-    if (changedProperties.has('_history') || (changedProperties.has('hass') && this._historyFetched)) {
+    // Rerender graphs when history data changes.
+    if (changedProperties.has('_history')) {
       // Defer rendering to the next frame to ensure the DOM is fully updated.
       requestAnimationFrame(() => this._renderAllGraphs());
     }
   }
 
-  private _renderAllGraphs(retryCount = 0): void {
+  private _renderAllGraphs(): void {
     // If the component is no longer connected to the DOM, stop.
     if (!this.isConnected) return;
 
-    const MAX_RETRIES = 10;
     const containers = this.renderRoot.querySelectorAll<HTMLElement>('.graph-container');
-
-    if (containers.length === 0) {
-      if (retryCount < MAX_RETRIES) requestAnimationFrame(() => this._renderAllGraphs(retryCount + 1));
-      return;
-    }
-
     if (!this._config?.entities) return;
 
     containers.forEach((container) => {
@@ -374,10 +367,8 @@ export class BackgroundGraphEntities extends LitElement implements LovelaceCard 
           newHistory.set(entityId, history);
         }
       });
-    const oldHistory = this._history;
     await Promise.all(historyPromises);
     this._history = newHistory;
-    this.requestUpdate('_history', oldHistory);
   }
 
   private _downsampleHistory(
@@ -507,9 +498,11 @@ export class BackgroundGraphEntities extends LitElement implements LovelaceCard 
   `;
 }
 
-window.customCards = window.customCards || [];
-window.customCards.push({
-  type: ELEMENT_NAME,
-  name: 'Background Graph Entities',
-  description: 'A card to display entities with a background graph.',
-});
+if (typeof window !== 'undefined') {
+  window.customCards = window.customCards || [];
+  window.customCards.push({
+    type: ELEMENT_NAME,
+    name: 'Background Graph Entities',
+    description: 'A card to display entities with a background graph.',
+  });
+}
