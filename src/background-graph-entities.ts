@@ -109,7 +109,8 @@ export class BackgroundGraphEntities extends LitElement implements LovelaceCard 
 
   private _setupUpdateInterval(): void {
     if (this._timerId) clearInterval(this._timerId);
-    const interval = this._config?.update_interval;
+    if (!this._config) return;
+    const interval = this._config.update_interval;
     if (interval) this._timerId = window.setInterval(() => this._fetchAndStoreAllHistory(), interval * MS_IN_S);
   }
 

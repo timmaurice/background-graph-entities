@@ -540,12 +540,12 @@ export class BackgroundGraphEntitiesEditor extends LitElement implements Lovelac
         <div class="opacity-slider-container">
           <div class="label-container">
             <span>${localize(this.hass, 'component.bge.editor.line_opacity')}</span>
-            <span>${Number(entityConf.line_opacity ?? this._config.line_opacity ?? 0.2).toFixed(2)}</span>
+            <span>${Number(entityConf.line_opacity ?? this._config.line_opacity ?? 0.2).toFixed(3)}</span>
           </div>
           <ha-slider
-            min="0.1"
+            min="0.05"
             max="0.8"
-            step="0.05"
+            step="0.025"
             .value=${entityConf.line_opacity ?? this._config.line_opacity ?? 0.2}
             data-index=${index}
             data-field="line_opacity"
@@ -765,12 +765,12 @@ export class BackgroundGraphEntitiesEditor extends LitElement implements Lovelac
         <div class="opacity-slider-container">
           <div class="label-container">
             <span>${localize(this.hass, 'component.bge.editor.line_opacity')}</span>
-            <span>${Number(this._config.line_opacity ?? 0.2).toFixed(2)}</span>
+            <span>${Number(this._config.line_opacity ?? 0.2).toFixed(3)}</span>
           </div>
           <ha-slider
-            min="0.1"
+            min="0.05"
             max="0.8"
-            step="0.05"
+            step="0.025"
             .value=${this._config.line_opacity ?? 0.2}
             .configValue=${'line_opacity'}
             @change=${this._valueChanged}
