@@ -19,7 +19,7 @@
     "check-format": "prettier --check .",
     "format": "prettier . --write",
     "lint": "eslint .",
-    "test": "vitest run",
+    "test": "NODE_ENV=production vitest run",
     "watch": "rollup -c -w"
   },
   "devDependencies": {

@@ -3842,8 +3842,25 @@ function curveStep(context) {
 
 const styles$1 = i$3`.card-content{padding:16px}.card-content.short .graph-container{right:70px}.entity-row{align-items:center;cursor:pointer;display:flex;height:40px;margin-bottom:8px;position:relative}.entity-row:last-of-type{margin-bottom:0}.entity-icon{color:var(--primary-text-color);fill:currentColor;margin-right:8px;text-align:center;width:40px}.entity-name{z-index:1}.entity-value{color:var(--primary-text-color);margin-left:auto;z-index:1}.graph-container{bottom:0;left:45px;pointer-events:none;position:absolute;right:0;top:0}.graph-container svg{height:100%;width:100%}.graph-path{fill:none;stroke-linecap:round;stroke-linejoin:round}.graph-dot{opacity:0;transition:opacity .2s ease-in-out}.entity-row:hover .graph-dot{opacity:1}`;
 
-// Define the custom element name
+// Default configuration values
+const DEFAULT_HOURS_TO_SHOW = 24;
+const DEFAULT_LINE_WIDTH = 3;
+const DEFAULT_LINE_OPACITY = 0.2;
+const DEFAULT_POINTS_PER_HOUR = 1;
+const DEFAULT_CURVE = 'spline';
+// D3/Rendering constants
+const Y_AXIS_PADDING_FACTOR = 0.1;
+const GRAPH_DOT_RADIUS = 2;
+const LINE_GLOW_STD_DEVIATION = 2.5;
+// Other constants
 const ELEMENT_NAME = 'background-graph-entities';
+const EDITOR_ELEMENT_NAME = `${ELEMENT_NAME}-editor`;
+const UNAVAILABLE_ICON = 'mdi:alert-circle-outline';
+const UNAVAILABLE_TEXT = 'Unavailable';
+const MS_IN_S = 1000;
+const S_IN_MIN = 60;
+const MIN_IN_H = 60;
+const MS_IN_H = MIN_IN_H * S_IN_MIN * MS_IN_S;
 console.info(`%c BACKGROUND-GRAPH-ENTITIES %c 1.0.1 `, 'color: orange; font-weight: bold; background: black', 'color: white; font-weight: bold; background: dimgray');
 let BackgroundGraphEntities = class BackgroundGraphEntities extends i {
     constructor() {
@@ -3881,7 +3898,7 @@ let BackgroundGraphEntities = class BackgroundGraphEntities extends i {
             clearInterval(this._timerId);
         const interval = this._config?.update_interval;
         if (interval)
-            this._timerId = window.setInterval(() => this._fetchAndStoreAllHistory(), interval * 1000);
+            this._timerId = window.setInterval(() => this._fetchAndStoreAllHistory(), interval * MS_IN_S);
     }
     static async getConfigElement() {
         // Ensure that the required Home Assistant components are loaded before creating the editor
@@ -3897,12 +3914,12 @@ let BackgroundGraphEntities = class BackgroundGraphEntities extends i {
         const entitiesCard = await helpers.createCardElement({ type: 'entities', entities: [] });
         await entitiesCard.constructor.getConfigElement();
         await Promise.resolve().then(function () { return editor; });
-        return document.createElement('background-graph-entities-editor');
+        return document.createElement(EDITOR_ELEMENT_NAME);
     }
     static getStubConfig() {
         return {
             entities: [{ entity: 'sun.sun' }],
-            hours_to_show: 24,
+            hours_to_show: DEFAULT_HOURS_TO_SHOW,
         };
     }
     updated(changedProperties) {
@@ -3917,16 +3934,14 @@ let BackgroundGraphEntities = class BackgroundGraphEntities extends i {
         }
     }
     _getCurveFactory() {
-        const curveType = this._config?.curve || 'spline';
-        switch (curveType) {
-            case 'linear':
-                return curveLinear;
-            case 'step':
-                return curveStep;
-            case 'spline':
-            default:
-                return curveBasis;
-        }
+        const curveFactories = {
+            linear: curveLinear,
+            step: curveStep,
+            spline: curveBasis,
+        };
+        const curveType = this._config?.curve || DEFAULT_CURVE;
+        // Fallback to spline (curveBasis) if an invalid curve type is provided from the config.
+        return curveFactories[curveType] ?? curveFactories.spline;
     }
     _renderAllGraphs() {
         // If the component is no longer connected to the DOM, stop.
@@ -4037,12 +4052,12 @@ let BackgroundGraphEntities = class BackgroundGraphEntities extends i {
         const stateObj = this.hass.states[entityConfig.entity];
         if (!stateObj)
             return this._renderUnavailableEntityRow(entityConfig);
-        const unit = stateObj.attributes.unit_of_measurement || '';
+        const unit = stateObj.attributes.unit_of_measurement ?? '';
         let value = stateObj.state;
         const stateNum = parseFloat(stateObj.state);
-        if (unit.toLowerCase() === 'min' && stateNum > 60) {
-            const hours = Math.floor(stateNum / 60);
-            const minutes = stateNum % 60;
+        if (unit.toLowerCase() === 'min' && stateNum > S_IN_MIN) {
+            const hours = Math.floor(stateNum / S_IN_MIN);
+            const minutes = stateNum % S_IN_MIN;
             value = `${hours}h ${minutes}min`;
         }
         else {
@@ -4062,10 +4077,10 @@ let BackgroundGraphEntities = class BackgroundGraphEntities extends i {
     _renderUnavailableEntityRow(entityConfig) {
         return x$1 `
       <div class="entity-row unavailable" @click=${() => this._openEntityPopup(entityConfig.entity)}>
-        <ha-icon class="entity-icon" icon="mdi:alert-circle-outline"></ha-icon>
+        <ha-icon class="entity-icon" icon=${UNAVAILABLE_ICON}></ha-icon>
         <div class="entity-name">${entityConfig.name || entityConfig.entity}</div>
         <div class="graph-container" data-entity-id=${entityConfig.entity}></div>
-        <div class="entity-value">${this.hass.localize('state.default.unavailable') || 'Unavailable'}</div>
+        <div class="entity-value">${this.hass.localize('state.default.unavailable') || UNAVAILABLE_TEXT}</div>
       </div>
     `;
     }
@@ -4089,7 +4104,7 @@ let BackgroundGraphEntities = class BackgroundGraphEntities extends i {
         }
         const width = container.clientWidth;
         const height = container.clientHeight;
-        const hoursToShow = this._config?.hours_to_show || 24;
+        const hoursToShow = this._config?.hours_to_show || DEFAULT_HOURS_TO_SHOW;
         const end = new Date();
         const start = new Date();
         start.setHours(end.getHours() - hoursToShow);
@@ -4112,7 +4127,7 @@ let BackgroundGraphEntities = class BackgroundGraphEntities extends i {
             yDomain[0] -= 1;
             yDomain[1] += 1;
         }
-        const yPadding = (yDomain[1] - yDomain[0]) * 0.1;
+        const yPadding = (yDomain[1] - yDomain[0]) * Y_AXIS_PADDING_FACTOR;
         yDomain[0] -= yPadding;
         yDomain[1] += yPadding;
         const xScale = time().domain(xDomain).range([0, width]);
@@ -4131,7 +4146,7 @@ let BackgroundGraphEntities = class BackgroundGraphEntities extends i {
                 .attr('y', '-50%')
                 .attr('width', '200%')
                 .attr('height', '200%');
-            filter.append('feGaussianBlur').attr('stdDeviation', 2.5).attr('result', 'coloredBlur');
+            filter.append('feGaussianBlur').attr('stdDeviation', LINE_GLOW_STD_DEVIATION).attr('result', 'coloredBlur');
             const merge = filter.append('feMerge');
             merge.append('feMergeNode').attr('in', 'coloredBlur');
             merge.append('feMergeNode').attr('in', 'SourceGraphic');
@@ -4150,8 +4165,8 @@ let BackgroundGraphEntities = class BackgroundGraphEntities extends i {
             .attr('stroke', strokeColor)
             .attr('stroke-opacity', entityConfig?.overwrite_graph_appearance && entityConfig.line_opacity !== undefined
             ? entityConfig.line_opacity
-            : (this._config?.line_opacity ?? 0.2))
-            .attr('stroke-width', this._config?.line_width || 3)
+            : (this._config?.line_opacity ?? DEFAULT_LINE_OPACITY))
+            .attr('stroke-width', this._config?.line_width || DEFAULT_LINE_WIDTH)
             .attr('filter', this._config.line_glow ? `url(#${glowId})` : null);
         // The first point in history is an anchor at the start time, not a bucket.
         // We only want to show dots for the actual data buckets.
@@ -4165,7 +4180,7 @@ let BackgroundGraphEntities = class BackgroundGraphEntities extends i {
                 .attr('class', 'graph-dot')
                 .attr('cx', (d) => xScale(d.timestamp))
                 .attr('cy', (d) => yScale(d.value))
-                .attr('r', 2)
+                .attr('r', GRAPH_DOT_RADIUS)
                 .attr('fill', (d) => this._getDotColor(d.value, entityConfig));
         }
     }
@@ -4193,8 +4208,8 @@ let BackgroundGraphEntities = class BackgroundGraphEntities extends i {
             return states; // Return raw states if downsampling is disabled or no data
         }
         const now = new Date();
-        const startTime = new Date(now.getTime() - hours * 3600 * 1000);
-        const interval = (3600 * 1000) / pointsPerHour;
+        const startTime = new Date(now.getTime() - hours * MS_IN_H);
+        const interval = MS_IN_H / pointsPerHour;
         const numBuckets = Math.ceil((now.getTime() - startTime.getTime()) / interval);
         const buckets = Array.from({ length: numBuckets }, () => ({
             values: [],
@@ -4239,8 +4254,8 @@ let BackgroundGraphEntities = class BackgroundGraphEntities extends i {
     async _fetchHistory(entityId) {
         if (!this.hass?.callWS)
             return null;
-        const hoursToShow = this._config?.hours_to_show || 24;
-        const pointsPerHour = this._config?.points_per_hour || 1;
+        const hoursToShow = this._config?.hours_to_show || DEFAULT_HOURS_TO_SHOW;
+        const pointsPerHour = this._config?.points_per_hour || DEFAULT_POINTS_PER_HOUR;
         const start = new Date();
         start.setHours(start.getHours() - hoursToShow);
         try {
@@ -4266,7 +4281,7 @@ let BackgroundGraphEntities = class BackgroundGraphEntities extends i {
                     value = 0;
                 else
                     value = Number(s.s);
-                return { timestamp: new Date(s.lu * 1000), value };
+                return { timestamp: new Date(s.lu * MS_IN_S), value };
             })
                 .filter((s) => !isNaN(s.value));
             return this._downsampleHistory(finalStates, hoursToShow, pointsPerHour);

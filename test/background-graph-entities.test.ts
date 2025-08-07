@@ -1,12 +1,9 @@
-import { describe, it, expect, beforeEach, vi, Mock } from 'vitest';
-import { BackgroundGraphEntities } from '../src/background-graph-entities';
+import { describe, it, expect, beforeEach, afterEach, vi, Mock, beforeAll } from 'vitest';
 import { HomeAssistant, BackgroundGraphEntitiesConfig } from '../src/types';
+import type { BackgroundGraphEntities as BackgroundGraphEntitiesType } from '../src/background-graph-entities';
 
-// Define the custom element if it's not already defined.
-// This prevents errors when running multiple test files.
-if (!customElements.get('background-graph-entities')) {
-  customElements.define('background-graph-entities', BackgroundGraphEntities);
-}
+// Mock console.info before the module is imported to prevent version logging.
+vi.spyOn(console, 'info').mockImplementation(() => {});
 
 // Define a minimal interface for the ha-card element to satisfy TypeScript
 interface HaCard extends HTMLElement {
@@ -14,14 +11,22 @@ interface HaCard extends HTMLElement {
 }
 
 describe('BackgroundGraphEntities', () => {
-  let element: BackgroundGraphEntities;
+  let element: BackgroundGraphEntitiesType;
   let hass: HomeAssistant;
   let config: BackgroundGraphEntitiesConfig;
+  // This will hold the class constructor at runtime, loaded via dynamic import.
+  let BackgroundGraphEntities: new () => BackgroundGraphEntitiesType;
 
   // Mock element dimensions for JSDOM. D3 requires a sized container to render.
-  beforeAll(() => {
+  beforeAll(async () => {
     Object.defineProperty(HTMLElement.prototype, 'clientWidth', { configurable: true, value: 100 });
     Object.defineProperty(HTMLElement.prototype, 'clientHeight', { configurable: true, value: 50 });
+
+    // Dynamically import the component to get the class constructor.
+    // This ensures the console.info mock above is active before the component's
+    // module-level code (which includes the log statement) runs.
+    const module = await import('../src/background-graph-entities');
+    BackgroundGraphEntities = module.BackgroundGraphEntities;
   });
 
   beforeEach(() => {
@@ -50,12 +55,13 @@ describe('BackgroundGraphEntities', () => {
     };
 
     // Create the element and add it to the DOM
-    element = document.createElement('background-graph-entities') as BackgroundGraphEntities;
+    element = document.createElement('background-graph-entities') as BackgroundGraphEntitiesType;
     document.body.appendChild(element);
   });
 
   afterEach(() => {
     document.body.removeChild(element);
+    vi.clearAllMocks();
   });
 
   it('should create the component instance', () => {

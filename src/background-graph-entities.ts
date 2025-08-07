@@ -12,11 +12,30 @@ import {
 import { extent } from 'd3-array';
 import { scaleLinear, scaleTime, ScaleLinear } from 'd3-scale';
 import { select, Selection } from 'd3-selection';
-import { line as d3Line, curveBasis, curveLinear, curveStep } from 'd3-shape';
+import { line as d3Line, curveBasis, curveLinear, curveStep, CurveFactory } from 'd3-shape';
 import styles from './styles/card.styles.scss';
 
-// Define the custom element name
+// Default configuration values
+const DEFAULT_HOURS_TO_SHOW = 24;
+const DEFAULT_LINE_WIDTH = 3;
+const DEFAULT_LINE_OPACITY = 0.2;
+const DEFAULT_POINTS_PER_HOUR = 1;
+const DEFAULT_CURVE = 'spline';
+
+// D3/Rendering constants
+const Y_AXIS_PADDING_FACTOR = 0.1;
+const GRAPH_DOT_RADIUS = 2;
+const LINE_GLOW_STD_DEVIATION = 2.5;
+
+// Other constants
 const ELEMENT_NAME = 'background-graph-entities';
+const EDITOR_ELEMENT_NAME = `${ELEMENT_NAME}-editor`;
+const UNAVAILABLE_ICON = 'mdi:alert-circle-outline';
+const UNAVAILABLE_TEXT = 'Unavailable';
+const MS_IN_S = 1000;
+const S_IN_MIN = 60;
+const MIN_IN_H = 60;
+const MS_IN_H = MIN_IN_H * S_IN_MIN * MS_IN_S;
 
 console.info(
   `%c BACKGROUND-GRAPH-ENTITIES %c v__CARD_VERSION__ `,
@@ -91,7 +110,7 @@ export class BackgroundGraphEntities extends LitElement implements LovelaceCard 
   private _setupUpdateInterval(): void {
     if (this._timerId) clearInterval(this._timerId);
     const interval = this._config?.update_interval;
-    if (interval) this._timerId = window.setInterval(() => this._fetchAndStoreAllHistory(), interval * 1000);
+    if (interval) this._timerId = window.setInterval(() => this._fetchAndStoreAllHistory(), interval * MS_IN_S);
   }
 
   public static async getConfigElement(): Promise<LovelaceCardEditor> {
@@ -109,13 +128,13 @@ export class BackgroundGraphEntities extends LitElement implements LovelaceCard 
     await (entitiesCard.constructor as LovelaceCardConstructor).getConfigElement();
 
     await import('./editor.js');
-    return document.createElement('background-graph-entities-editor') as LovelaceCardEditor;
+    return document.createElement(EDITOR_ELEMENT_NAME) as LovelaceCardEditor;
   }
 
   public static getStubConfig(): Record<string, unknown> {
     return {
       entities: [{ entity: 'sun.sun' }],
-      hours_to_show: 24,
+      hours_to_show: DEFAULT_HOURS_TO_SHOW,
     };
   }
 
@@ -132,17 +151,15 @@ export class BackgroundGraphEntities extends LitElement implements LovelaceCard 
     }
   }
 
-  private _getCurveFactory() {
-    const curveType = this._config?.curve || 'spline';
-    switch (curveType) {
-      case 'linear':
-        return curveLinear;
-      case 'step':
-        return curveStep;
-      case 'spline':
-      default:
-        return curveBasis;
-    }
+  private _getCurveFactory(): CurveFactory {
+    const curveFactories = {
+      linear: curveLinear,
+      step: curveStep,
+      spline: curveBasis,
+    };
+    const curveType = this._config?.curve || DEFAULT_CURVE;
+    // Fallback to spline (curveBasis) if an invalid curve type is provided from the config.
+    return curveFactories[curveType] ?? curveFactories.spline;
   }
 
   private _renderAllGraphs(): void {
@@ -278,12 +295,12 @@ export class BackgroundGraphEntities extends LitElement implements LovelaceCard 
   private _renderEntityRow(entityConfig: EntityConfig): TemplateResult {
     const stateObj = this.hass.states[entityConfig.entity];
     if (!stateObj) return this._renderUnavailableEntityRow(entityConfig);
-    const unit = stateObj.attributes.unit_of_measurement || '';
+    const unit = stateObj.attributes.unit_of_measurement ?? '';
     let value = stateObj.state;
     const stateNum = parseFloat(stateObj.state);
-    if (unit.toLowerCase() === 'min' && stateNum > 60) {
-      const hours = Math.floor(stateNum / 60);
-      const minutes = stateNum % 60;
+    if (unit.toLowerCase() === 'min' && stateNum > S_IN_MIN) {
+      const hours = Math.floor(stateNum / S_IN_MIN);
+      const minutes = stateNum % S_IN_MIN;
       value = `${hours}h ${minutes}min`;
     } else {
       value = [stateObj.state, unit].filter(Boolean).join(' ');
@@ -304,10 +321,10 @@ export class BackgroundGraphEntities extends LitElement implements LovelaceCard 
   private _renderUnavailableEntityRow(entityConfig: EntityConfig): TemplateResult {
     return html`
       <div class="entity-row unavailable" @click=${() => this._openEntityPopup(entityConfig.entity)}>
-        <ha-icon class="entity-icon" icon="mdi:alert-circle-outline"></ha-icon>
+        <ha-icon class="entity-icon" icon=${UNAVAILABLE_ICON}></ha-icon>
         <div class="entity-name">${entityConfig.name || entityConfig.entity}</div>
         <div class="graph-container" data-entity-id=${entityConfig.entity}></div>
-        <div class="entity-value">${this.hass.localize('state.default.unavailable') || 'Unavailable'}</div>
+        <div class="entity-value">${this.hass.localize('state.default.unavailable') || UNAVAILABLE_TEXT}</div>
       </div>
     `;
   }
@@ -342,7 +359,7 @@ export class BackgroundGraphEntities extends LitElement implements LovelaceCard 
     const width = container.clientWidth;
     const height = container.clientHeight;
 
-    const hoursToShow = this._config?.hours_to_show || 24;
+    const hoursToShow = this._config?.hours_to_show || DEFAULT_HOURS_TO_SHOW;
     const end = new Date();
     const start = new Date();
     start.setHours(end.getHours() - hoursToShow);
@@ -371,7 +388,7 @@ export class BackgroundGraphEntities extends LitElement implements LovelaceCard 
       yDomain[1] += 1;
     }
 
-    const yPadding = (yDomain[1] - yDomain[0]) * 0.1;
+    const yPadding = (yDomain[1] - yDomain[0]) * Y_AXIS_PADDING_FACTOR;
     yDomain[0] -= yPadding;
     yDomain[1] += yPadding;
 
@@ -394,7 +411,7 @@ export class BackgroundGraphEntities extends LitElement implements LovelaceCard 
         .attr('width', '200%')
         .attr('height', '200%');
 
-      filter.append('feGaussianBlur').attr('stdDeviation', 2.5).attr('result', 'coloredBlur');
+      filter.append('feGaussianBlur').attr('stdDeviation', LINE_GLOW_STD_DEVIATION).attr('result', 'coloredBlur');
 
       const merge = filter.append('feMerge');
       merge.append('feMergeNode').attr('in', 'coloredBlur');
@@ -419,9 +436,9 @@ export class BackgroundGraphEntities extends LitElement implements LovelaceCard 
         'stroke-opacity',
         entityConfig?.overwrite_graph_appearance && entityConfig.line_opacity !== undefined
           ? entityConfig.line_opacity
-          : (this._config?.line_opacity ?? 0.2),
+          : (this._config?.line_opacity ?? DEFAULT_LINE_OPACITY),
       )
-      .attr('stroke-width', this._config?.line_width || 3)
+      .attr('stroke-width', this._config?.line_width || DEFAULT_LINE_WIDTH)
       .attr('filter', this._config.line_glow ? `url(#${glowId})` : null);
 
     // The first point in history is an anchor at the start time, not a bucket.
@@ -436,7 +453,7 @@ export class BackgroundGraphEntities extends LitElement implements LovelaceCard 
         .attr('class', 'graph-dot')
         .attr('cx', (d) => xScale(d.timestamp))
         .attr('cy', (d) => yScale(d.value))
-        .attr('r', 2)
+        .attr('r', GRAPH_DOT_RADIUS)
         .attr('fill', (d) => this._getDotColor(d.value, entityConfig));
     }
   }
@@ -470,8 +487,8 @@ export class BackgroundGraphEntities extends LitElement implements LovelaceCard 
     }
 
     const now = new Date();
-    const startTime = new Date(now.getTime() - hours * 3600 * 1000);
-    const interval = (3600 * 1000) / pointsPerHour;
+    const startTime = new Date(now.getTime() - hours * MS_IN_H);
+    const interval = MS_IN_H / pointsPerHour;
     const numBuckets = Math.ceil((now.getTime() - startTime.getTime()) / interval);
 
     const buckets: { values: number[] }[] = Array.from({ length: numBuckets }, () => ({
@@ -524,8 +541,8 @@ export class BackgroundGraphEntities extends LitElement implements LovelaceCard 
   private async _fetchHistory(entityId: string): Promise<{ timestamp: Date; value: number }[] | null> {
     if (!this.hass?.callWS) return null;
 
-    const hoursToShow = this._config?.hours_to_show || 24;
-    const pointsPerHour = this._config?.points_per_hour || 1;
+    const hoursToShow = this._config?.hours_to_show || DEFAULT_HOURS_TO_SHOW;
+    const pointsPerHour = this._config?.points_per_hour || DEFAULT_POINTS_PER_HOUR;
 
     const start = new Date();
     start.setHours(start.getHours() - hoursToShow);
@@ -554,7 +571,7 @@ export class BackgroundGraphEntities extends LitElement implements LovelaceCard 
           if (s.s === 'on') value = 1;
           else if (s.s === 'off') value = 0;
           else value = Number(s.s);
-          return { timestamp: new Date(s.lu * 1000), value };
+          return { timestamp: new Date(s.lu * MS_IN_S), value };
         })
         .filter((s) => !isNaN(s.value));
       return this._downsampleHistory(finalStates, hoursToShow, pointsPerHour);
