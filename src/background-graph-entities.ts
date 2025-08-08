@@ -296,15 +296,24 @@ export class BackgroundGraphEntities extends LitElement implements LovelaceCard 
   private _renderEntityRow(entityConfig: EntityConfig): TemplateResult {
     const stateObj = this.hass.states[entityConfig.entity];
     if (!stateObj) return this._renderUnavailableEntityRow(entityConfig);
+    const entityDisplay = this.hass.entities[entityConfig.entity];
     const unit = stateObj.attributes.unit_of_measurement ?? '';
-    let value = stateObj.state;
     const stateNum = parseFloat(stateObj.state);
+    let displayValue: string;
+
+    // Special formatting for time in minutes
     if (unit.toLowerCase() === 'min' && stateNum > S_IN_MIN) {
       const hours = Math.floor(stateNum / S_IN_MIN);
       const minutes = stateNum % S_IN_MIN;
-      value = `${hours}h ${minutes}min`;
+      displayValue = `${hours}h ${minutes}min`;
     } else {
-      value = [stateObj.state, unit].filter(Boolean).join(' ');
+      const displayPrecision = entityDisplay?.display_precision;
+      let valueToDisplay = stateObj.state;
+      // Apply display_precision if available and state is numeric
+      if (!isNaN(stateNum) && typeof displayPrecision === 'number') {
+        valueToDisplay = stateNum.toFixed(displayPrecision);
+      }
+      displayValue = [valueToDisplay, unit].filter(Boolean).join(' ');
     }
 
     return html`
@@ -314,7 +323,7 @@ export class BackgroundGraphEntities extends LitElement implements LovelaceCard 
           : html`<ha-state-icon class="entity-icon" .hass=${this.hass} .stateObj=${stateObj}></ha-state-icon>`}
         <div class="entity-name">${entityConfig.name || stateObj.attributes.friendly_name || entityConfig.entity}</div>
         <div class="graph-container" data-entity-id=${entityConfig.entity}></div>
-        <div class="entity-value">${value}</div>
+        <div class="entity-value">${displayValue}</div>
       </div>
     `;
   }

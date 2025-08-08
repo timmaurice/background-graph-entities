@@ -42,6 +42,7 @@ describe('BackgroundGraphEntities', () => {
           },
         },
       },
+      entities: {},
       localize: (key: string) => key,
       language: 'en',
       themes: { darkMode: false },
@@ -126,5 +127,29 @@ describe('BackgroundGraphEntities', () => {
     const graphContainer = element.shadowRoot?.querySelector('.graph-container');
     const svg = graphContainer?.querySelector('svg');
     expect(svg).not.toBeNull();
+  });
+
+  it('should format the entity state using display_precision', async () => {
+    hass.states['sensor.precise'] = {
+      entity_id: 'sensor.precise',
+      state: '123.4567',
+      attributes: {
+        friendly_name: 'Precise Sensor',
+        unit_of_measurement: 'V',
+      },
+    };
+    hass.entities['sensor.precise'] = {
+      entity_id: 'sensor.precise',
+      display_precision: 2,
+    };
+    element.setConfig({
+      type: 'custom:background-graph-entities',
+      entities: ['sensor.precise'],
+    });
+    element.hass = hass;
+    await element.updateComplete;
+
+    const value = element.shadowRoot?.querySelector('.entity-value');
+    expect(value?.textContent?.trim()).toBe('123.46 V');
   });
 });

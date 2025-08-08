@@ -1,6 +1,7 @@
 // A basic representation of the Home Assistant object
 export interface HomeAssistant {
   states: { [entity_id: string]: HassEntity };
+  entities: { [entity_id: string]: HassEntityRegistryDisplayEntry };
   localize: (key: string, ...args: unknown[]) => string;
   language: string;
   callWS: <T>(message: { type: string; [key: string]: unknown }) => Promise<T>;
@@ -20,6 +21,11 @@ export interface HassEntity {
     unit_of_measurement?: string;
     [key: string]: unknown;
   };
+}
+
+export interface HassEntityRegistryDisplayEntry {
+  entity_id: string;
+  display_precision?: number;
 }
 
 // A basic representation of a Lovelace card
