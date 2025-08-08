@@ -302,10 +302,14 @@ export class BackgroundGraphEntities extends LitElement implements LovelaceCard 
     let displayValue: string;
 
     // Special formatting for time in minutes
-    if (unit.toLowerCase() === 'min' && stateNum > S_IN_MIN) {
-      const hours = Math.floor(stateNum / S_IN_MIN);
-      const minutes = stateNum % S_IN_MIN;
-      displayValue = `${hours}h ${minutes}min`;
+    if (unit.toLowerCase() === 'min') {
+      if (stateNum >= S_IN_MIN) {
+        const hours = Math.floor(stateNum / S_IN_MIN);
+        const minutes = stateNum % S_IN_MIN;
+        displayValue = `${hours}h ${Math.floor(minutes)}min`;
+      } else {
+        displayValue = `${Math.floor(stateNum)} ${unit}`;
+      }
     } else {
       const displayPrecision = entityDisplay?.display_precision;
       let valueToDisplay = stateObj.state;

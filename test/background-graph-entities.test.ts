@@ -152,4 +152,28 @@ describe('BackgroundGraphEntities', () => {
     const value = element.shadowRoot?.querySelector('.entity-value');
     expect(value?.textContent?.trim()).toBe('123.46 V');
   });
+
+  it('should format minute values correctly', async () => {
+    hass.states['sensor.time_short'] = {
+      entity_id: 'sensor.time_short',
+      state: '14.56',
+      attributes: { friendly_name: 'Short Time', unit_of_measurement: 'min' },
+    };
+    hass.states['sensor.time_long'] = {
+      entity_id: 'sensor.time_long',
+      state: '75.5',
+      attributes: { friendly_name: 'Long Time', unit_of_measurement: 'min' },
+    };
+    element.setConfig({
+      type: 'custom:background-graph-entities',
+      entities: ['sensor.time_short', 'sensor.time_long'],
+    });
+    element.hass = hass;
+    await element.updateComplete;
+
+    const values = element.shadowRoot?.querySelectorAll('.entity-value');
+    expect(values).toHaveLength(2);
+    expect(values?.[0].textContent?.trim()).toBe('14 min');
+    expect(values?.[1].textContent?.trim()).toBe('1h 15min');
+  });
 });
