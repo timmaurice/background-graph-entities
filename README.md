@@ -84,15 +84,15 @@ The card is fully configurable through the UI editor.
 
 Each entry in the `entities` list can be a string (the entity ID) or an object with more specific configurations.
 
-| Name                         | Type    | Default                   | Description                                                                              |
-| ---------------------------- | ------- | ------------------------- | ---------------------------------------------------------------------------------------- |
-| `entity`                     | string  | **Required**              | The ID of the entity to display.                                                         |
-| `name`                       | string  | Entity's friendly name    | A custom name for the entity.                                                            |
-| `icon`                       | string  | Entity's icon             | A custom icon for the entity (e.g., `mdi:thermometer`).                                  |
-| `overwrite_graph_appearance` | boolean | `false`                   | (UI Editor Helper) When enabled, allows you to set entity-specific graph settings below. |
-| `line_color`                 | string  | Global `line_color`       | Overrides the global `line_color` for this entity only.                                  |
-| `line_opacity`               | number  | Global `line_opacity`     | Overrides the global `line_opacity` for this entity only.                                |
-| `color_thresholds`           | list    | Global `color_thresholds` | Overrides the global `color_thresholds` for this entity only.                            |
+| Name                         | Type    | Default                   | Description                                                                                               |
+| ---------------------------- | ------- | ------------------------- | --------------------------------------------------------------------------------------------------------- |
+| `entity`                     | string  | **Required**              | The ID of the entity to display.                                                                          |
+| `name`                       | string  | Entity's friendly name    | A custom name for the entity.                                                                             |
+| `icon`                       | string  | Entity's icon             | A custom icon for the entity (e.g., `mdi:thermometer`).                                                   |
+| `overwrite_graph_appearance` | boolean | `false`                   | Set to `true` to enable entity-specific graph settings below. Required for per-entity overrides to apply. |
+| `line_color`                 | string  | Global `line_color`       | Overrides the global `line_color` for this entity only.                                                   |
+| `line_opacity`               | number  | Global `line_opacity`     | Overrides the global `line_opacity` for this entity only.                                                 |
+| `color_thresholds`           | list    | Global `color_thresholds` | Overrides the global `color_thresholds` for this entity only.                                             |
 
 ### Examples
 
@@ -146,12 +146,14 @@ entities:
 
   # This entity has its own line color and opacity
   - entity: sensor.bedroom_temperature
+    overwrite_graph_appearance: true
     line_color: '#3498db' # blue
     line_opacity: 0.5
 
   # This entity uses color thresholds, which creates a gradient
   - entity: sensor.co2_level
     name: CO2 Level
+    overwrite_graph_appearance: true
     color_thresholds:
       - value: 400
         color: '#2ecc71' # green
