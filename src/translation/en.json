@@ -27,6 +27,7 @@
     "optional_overrides": "Optional Overrides",
     "name": "Name",
     "icon": "Icon",
+    "icon_color": "Icon Color",
     "curve": "Curve Type",
     "curve_spline": "Spline",
     "curve_linear": "Linear",

@@ -484,6 +484,7 @@ export class BackgroundGraphEntitiesEditor extends LitElement implements Lovelac
     if (!entityConf) return html``;
 
     const overwriteAppearance = entityConf.overwrite_graph_appearance ?? false;
+    const finalIconColor = entityConf.icon_color || 'var(--primary-text-color)';
 
     return html`
       <div class="header">
@@ -510,6 +511,35 @@ export class BackgroundGraphEntitiesEditor extends LitElement implements Lovelac
           data-field="icon"
           @value-changed=${this._entityAttributeChanged}
         ></ha-icon-picker>
+
+        <div
+          class="color-input-wrapper"
+          data-picker-id="entity_icon_color_${this._editingIndex}"
+          @mousedown=${(e: MouseEvent) => this._toggleColorPicker(e, `entity_icon_color_${this._editingIndex}`)}
+        >
+          <ha-textfield
+            .label=${localize(this.hass, 'component.bge.editor.icon_color')}
+            .value=${entityConf.icon_color ?? ''}
+            .placeholder=${'var(--primary-text-color)'}
+            data-index=${this._editingIndex}
+            data-field="icon_color"
+            @change=${this._entityAttributeChanged}
+          ></ha-textfield>
+          <div class="color-preview" style="background-color: ${finalIconColor}"></div>
+          <div
+            class="color-picker-popup"
+            data-picker-id="entity_icon_color_${this._editingIndex}"
+            @mousedown=${(e: MouseEvent) => e.stopPropagation()}
+          >
+            <rgb-string-color-picker
+              .color=${finalIconColor}
+              data-index=${this._editingIndex}
+              data-field="icon_color"
+              @color-changed=${this._entityAttributeChanged}
+              alpha
+            ></rgb-string-color-picker>
+          </div>
+        </div>
 
         <ha-formfield .label=${localize(this.hass, 'component.bge.editor.optional_overrides')}>
           <ha-switch

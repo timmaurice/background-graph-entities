@@ -26,6 +26,7 @@
     "optional_overrides": "Optionale Überschreibungen",
     "name": "Name",
     "icon": "Icon",
+    "icon_color": "Icon-Farbe",
     "line_glow": "Leuchteffekt",
     "curve": "Kurventyp",
     "curve_spline": "Spline",

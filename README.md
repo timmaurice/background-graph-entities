@@ -89,6 +89,7 @@ Each entry in the `entities` list can be a string (the entity ID) or an object w
 | `entity`                     | string  | **Required**              | The ID of the entity to display.                                                                          |
 | `name`                       | string  | Entity's friendly name    | A custom name for the entity.                                                                             |
 | `icon`                       | string  | Entity's icon             | A custom icon for the entity (e.g., `mdi:thermometer`).                                                   |
+| `icon_color`                 | string  | Theme-aware               | A custom color for the icon (e.g., `orange` or `#ffaa00`). Defaults to the theme's icon color.            |
 | `overwrite_graph_appearance` | boolean | `false`                   | Set to `true` to enable entity-specific graph settings below. Required for per-entity overrides to apply. |
 | `line_color`                 | string  | Global `line_color`       | Overrides the global `line_color` for this entity only.                                                   |
 | `line_opacity`               | number  | Global `line_opacity`     | Overrides the global `line_opacity` for this entity only.                                                 |
@@ -146,6 +147,8 @@ entities:
 
   # This entity has its own line color and opacity
   - entity: sensor.bedroom_temperature
+    icon: mdi:thermometer-lines
+    icon_color: '#3498db'
     overwrite_graph_appearance: true
     line_color: '#3498db' # blue
     line_opacity: 0.5

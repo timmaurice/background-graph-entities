@@ -56,6 +56,7 @@ export interface EntityConfig {
   entity: string;
   name?: string;
   icon?: string;
+  icon_color?: string;
   overwrite_graph_appearance?: boolean;
   line_color?: string;
   line_opacity?: number;

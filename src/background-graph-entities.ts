@@ -320,11 +320,18 @@ export class BackgroundGraphEntities extends LitElement implements LovelaceCard 
       displayValue = [valueToDisplay, unit].filter(Boolean).join(' ');
     }
 
+    const iconStyle = entityConfig.icon_color ? `color: ${entityConfig.icon_color}` : '';
+
     return html`
       <div class="entity-row" @click=${() => this._openEntityPopup(entityConfig.entity)}>
         ${entityConfig.icon
-          ? html`<ha-icon class="entity-icon" .icon=${entityConfig.icon}></ha-icon>`
-          : html`<ha-state-icon class="entity-icon" .hass=${this.hass} .stateObj=${stateObj}></ha-state-icon>`}
+          ? html`<ha-icon class="entity-icon" .icon=${entityConfig.icon} style=${iconStyle}></ha-icon>`
+          : html`<ha-state-icon
+              class="entity-icon"
+              .hass=${this.hass}
+              .stateObj=${stateObj}
+              style=${iconStyle}
+            ></ha-state-icon>`}
         <div class="entity-name">${entityConfig.name || stateObj.attributes.friendly_name || entityConfig.entity}</div>
         <div class="graph-container" data-entity-id=${entityConfig.entity}></div>
         <div class="entity-value">${displayValue}</div>
