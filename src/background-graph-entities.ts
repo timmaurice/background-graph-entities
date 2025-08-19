@@ -49,6 +49,8 @@ declare global {
       type: string;
       name: string;
       description: string;
+      documentationURL: string;
+      preview?: boolean;
     }[];
   }
 }
@@ -627,5 +629,6 @@ if (typeof window !== 'undefined') {
     type: ELEMENT_NAME,
     name: 'Background Graph Entities',
     description: 'A card to display entities with a background graph.',
+    documentationURL: 'https://github.com/timmaurice/lovelace-background-graph-entities',
   });
 }
