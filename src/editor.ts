@@ -10,11 +10,16 @@ import {
 import { localize } from './localize';
 import { fireEvent } from './utils';
 import editorStyles from './styles/editor.styles.scss';
-import 'vanilla-colorful/rgb-string-color-picker.js';
+import { HexBase } from 'vanilla-colorful/lib/entrypoints/hex';
+
+// Conditionally define the hex-color-picker to avoid registration conflicts when another card also uses it.
+if (!window.customElements.get('hex-color-picker')) {
+  window.customElements.define('hex-color-picker', class extends HexBase {});
+}
 
 type EditorInternalConfig = Omit<BackgroundGraphEntitiesConfig, 'entities' | 'color_thresholds'> & {
   entities: EntityConfig[];
-  color_thresholds: ColorThreshold[];
+  color_thresholds?: ColorThreshold[];
 };
 
 interface ValueChangedEventTarget extends HTMLElement {
@@ -51,9 +56,7 @@ export class BackgroundGraphEntitiesEditor extends LitElement implements Lovelac
     this._config = {
       ...config,
       entities,
-      color_thresholds: config.color_thresholds || [],
     };
-
     this.requestUpdate();
   }
 
@@ -91,6 +94,13 @@ export class BackgroundGraphEntitiesEditor extends LitElement implements Lovelac
     this._activeColorPicker = null;
   };
 
+  private _updateConfig(updater: (config: EditorInternalConfig) => EditorInternalConfig): void {
+    if (!this._config) return;
+    const newConfig = updater(this._config);
+    this._config = newConfig;
+    fireEvent(this, 'config-changed', { config: newConfig as BackgroundGraphEntitiesConfig });
+  }
+
   private _toggleColorPicker(ev: MouseEvent, pickerId: string): void {
     ev.stopPropagation();
     const targetPopup = this.renderRoot.querySelector<HTMLElement>(`.color-picker-popup[data-picker-id="${pickerId}"]`);
@@ -111,24 +121,44 @@ export class BackgroundGraphEntitiesEditor extends LitElement implements Lovelac
     }
   }
 
-  private _handleColorModeChange(ev: Event): void {
+  private _handleColorModeChange(ev: Event, entityIndex: number | null = null): void {
     const newMode = (ev.target as HTMLSelectElement).value;
-    const oldMode = (this._config.color_thresholds?.length ?? 0) > 0 ? 'threshold' : 'single';
 
-    if (newMode === oldMode || !this._config) return;
+    this._updateConfig((config) => {
+      if (entityIndex === null) {
+        const oldMode = (config.color_thresholds?.length ?? 0) > 0 ? 'threshold' : 'single';
+        if (newMode === oldMode) return config;
 
-    const newConfig = { ...this._config };
+        const newConfig = { ...config };
+        if (newMode === 'threshold') {
+          if (!newConfig.color_thresholds || newConfig.color_thresholds.length === 0) {
+            newConfig.color_thresholds = [{ value: 0, color: '#000000' }];
+          }
+        } else {
+          delete newConfig.color_thresholds;
+        }
+        return newConfig;
+      } else {
+        const entityConf = config.entities[entityIndex];
+        const oldMode = (entityConf.color_thresholds?.length ?? 0) > 0 ? 'threshold' : 'single';
+        if (newMode === oldMode) return config;
 
-    if (newMode === 'threshold') {
-      if (!newConfig.color_thresholds || newConfig.color_thresholds.length === 0) {
-        newConfig.color_thresholds = [{ value: 0, color: '#000000' }];
+        const newEntities = [...config.entities];
+        const newEntityConf = { ...newEntities[entityIndex] };
+
+        if (newMode === 'threshold') {
+          delete newEntityConf.line_color;
+          if (!newEntityConf.color_thresholds || newEntityConf.color_thresholds.length === 0) {
+            newEntityConf.color_thresholds = [{ value: 0, color: '#000000' }];
+          }
+        } else {
+          delete newEntityConf.color_thresholds;
+        }
+
+        newEntities[entityIndex] = newEntityConf;
+        return { ...config, entities: newEntities };
       }
-    } else {
-      newConfig.color_thresholds = [];
-    }
-
-    this._config = newConfig;
-    fireEvent(this, 'config-changed', { config: newConfig as BackgroundGraphEntitiesConfig });
+    });
   }
 
   private _valueChanged(ev: Event): void {
@@ -191,83 +221,24 @@ export class BackgroundGraphEntitiesEditor extends LitElement implements Lovelac
   private _colorPicked(ev: CustomEvent): void {
     const target = ev.target as ColorPicker;
     const configValue = target.configValue;
-    if (!configValue || !this._config) return;
+    if (!configValue) return;
 
     const newValue = ev.detail.value;
-    if (this._config[configValue] === newValue) return;
 
-    const newConfig: EditorInternalConfig = {
-      ...this._config,
-      [configValue]: newValue || undefined,
-    };
+    this._updateConfig((config) => {
+      if (config[configValue] === newValue) return config;
 
-    this._config = newConfig;
-    fireEvent(this, 'config-changed', { config: newConfig as BackgroundGraphEntitiesConfig });
-  }
-
-  private _thresholdChanged(ev: Event, index: number): void {
-    if (!this._config) return;
-
-    const target = ev.target as ThresholdEventTarget;
-    const field = target.dataset.field as keyof ColorThreshold;
-    const isColorPicker = target.tagName.toLowerCase().includes('color-picker');
-    const value = isColorPicker ? (ev as CustomEvent).detail.value : target.value;
-
-    const newThresholds = [...this._config.color_thresholds];
-    newThresholds[index] = {
-      ...newThresholds[index],
-      [field]: field === 'value' ? Number(value) : value,
-    };
-
-    const newConfig = { ...this._config, color_thresholds: newThresholds };
-    this._config = newConfig;
-    fireEvent(this, 'config-changed', { config: newConfig as BackgroundGraphEntitiesConfig });
-  }
-
-  private _addThreshold(): void {
-    if (!this._config) return;
-    const newThresholds = [...this._config.color_thresholds, { value: 0, color: '#000000' }];
-    const newConfig = { ...this._config, color_thresholds: newThresholds };
-    this._config = newConfig;
-    fireEvent(this, 'config-changed', { config: newConfig as BackgroundGraphEntitiesConfig });
-  }
-
-  private _removeThreshold(index: number): void {
-    if (!this._config) return;
-    const newThresholds = [...this._config.color_thresholds];
-    newThresholds.splice(index, 1);
-    const newConfig = { ...this._config, color_thresholds: newThresholds };
-    this._config = newConfig;
-    fireEvent(this, 'config-changed', { config: newConfig as BackgroundGraphEntitiesConfig });
-  }
-
-  private _handleEntityColorModeChange(ev: Event, index: number): void {
-    const newMode = (ev.target as HTMLSelectElement).value;
-    const entityConf = this._config.entities[index];
-    const oldMode = (entityConf.color_thresholds?.length ?? 0) > 0 ? 'threshold' : 'single';
-
-    if (newMode === oldMode) return;
-
-    const newEntities = [...this._config.entities];
-    const newEntityConf = { ...newEntities[index] };
-
-    if (newMode === 'threshold') {
-      delete newEntityConf.line_color;
-      if (!newEntityConf.color_thresholds || newEntityConf.color_thresholds.length === 0) {
-        newEntityConf.color_thresholds = [{ value: 0, color: '#000000' }];
+      const newConfig = { ...config };
+      if (newValue) {
+        newConfig[configValue] = newValue;
+      } else {
+        delete newConfig[configValue];
       }
-    } else {
-      delete newEntityConf.color_thresholds;
-    }
-
-    newEntities[index] = newEntityConf;
-
-    const newConfig = { ...this._config, entities: newEntities };
-    this._config = newConfig;
-    fireEvent(this, 'config-changed', { config: newConfig as BackgroundGraphEntitiesConfig });
+      return newConfig;
+    });
   }
 
-  private _entityThresholdChanged(ev: Event, entityIndex: number, thresholdIndex: number): void {
+  private _thresholdChanged(ev: Event, thresholdIndex: number, entityIndex: number | null = null): void {
     if (!this._config) return;
 
     const target = ev.target as ThresholdEventTarget;
@@ -275,54 +246,72 @@ export class BackgroundGraphEntitiesEditor extends LitElement implements Lovelac
     const isColorPicker = target.tagName.toLowerCase().includes('color-picker');
     const value = isColorPicker ? (ev as CustomEvent).detail.value : target.value;
 
-    const newEntities = [...this._config.entities];
-    const entityConf = { ...newEntities[entityIndex] };
-    const newThresholds = [...(entityConf.color_thresholds || [])];
+    this._updateConfig((config) => {
+      const newThresholdValue = field === 'value' ? Number(value) : value;
 
-    newThresholds[thresholdIndex] = {
-      ...newThresholds[thresholdIndex],
-      [field]: field === 'value' ? Number(value) : value,
-    };
-
-    entityConf.color_thresholds = newThresholds;
-    newEntities[entityIndex] = entityConf;
-
-    const newConfig = { ...this._config, entities: newEntities };
-    this._config = newConfig;
-    fireEvent(this, 'config-changed', { config: newConfig as BackgroundGraphEntitiesConfig });
+      if (entityIndex === null) {
+        if (!config.color_thresholds) return config;
+        const newThresholds = [...config.color_thresholds];
+        newThresholds[thresholdIndex] = {
+          ...newThresholds[thresholdIndex],
+          [field]: newThresholdValue,
+        };
+        return { ...config, color_thresholds: newThresholds };
+      } else {
+        const newEntities = [...config.entities];
+        const entityConf = { ...newEntities[entityIndex] };
+        const newThresholds = [...(entityConf.color_thresholds || [])];
+        newThresholds[thresholdIndex] = {
+          ...newThresholds[thresholdIndex],
+          [field]: newThresholdValue,
+        };
+        entityConf.color_thresholds = newThresholds;
+        newEntities[entityIndex] = entityConf;
+        return { ...config, entities: newEntities };
+      }
+    });
   }
 
-  private _addEntityThreshold(entityIndex: number): void {
-    if (!this._config) return;
-    const newEntities = [...this._config.entities];
-    const entityConf = { ...newEntities[entityIndex] };
-    const newThresholds = [...(entityConf.color_thresholds || []), { value: 0, color: '#000000' }];
-    entityConf.color_thresholds = newThresholds;
-    newEntities[entityIndex] = entityConf;
-
-    const newConfig = { ...this._config, entities: newEntities };
-    this._config = newConfig;
-    fireEvent(this, 'config-changed', { config: newConfig as BackgroundGraphEntitiesConfig });
+  private _addThreshold(entityIndex: number | null = null): void {
+    this._updateConfig((config) => {
+      const newThreshold = { value: 0, color: '#000000' };
+      if (entityIndex === null) {
+        const newThresholds = [...(config.color_thresholds || []), newThreshold];
+        return { ...config, color_thresholds: newThresholds };
+      } else {
+        const newEntities = [...config.entities];
+        const entityConf = { ...newEntities[entityIndex] };
+        const newThresholds = [...(entityConf.color_thresholds || []), newThreshold];
+        entityConf.color_thresholds = newThresholds;
+        newEntities[entityIndex] = entityConf;
+        return { ...config, entities: newEntities };
+      }
+    });
   }
 
-  private _removeEntityThreshold(entityIndex: number, thresholdIndex: number): void {
-    if (!this._config) return;
-    const newEntities = [...this._config.entities];
-    const entityConf = { ...newEntities[entityIndex] };
-    const newThresholds = [...(entityConf.color_thresholds || [])];
-    newThresholds.splice(thresholdIndex, 1);
+  private _removeThreshold(thresholdIndex: number, entityIndex: number | null = null): void {
+    this._updateConfig((config) => {
+      if (entityIndex === null) {
+        if (!config.color_thresholds) return config;
+        const newThresholds = [...config.color_thresholds];
+        newThresholds.splice(thresholdIndex, 1);
+        return { ...config, color_thresholds: newThresholds };
+      } else {
+        const newEntities = [...config.entities];
+        const entityConf = { ...newEntities[entityIndex] };
+        const newThresholds = [...(entityConf.color_thresholds || [])];
+        newThresholds.splice(thresholdIndex, 1);
 
-    if (newThresholds.length === 0) {
-      delete entityConf.color_thresholds;
-    } else {
-      entityConf.color_thresholds = newThresholds;
-    }
+        if (newThresholds.length === 0) {
+          delete entityConf.color_thresholds;
+        } else {
+          entityConf.color_thresholds = newThresholds;
+        }
 
-    newEntities[entityIndex] = entityConf;
-
-    const newConfig = { ...this._config, entities: newEntities };
-    this._config = newConfig;
-    fireEvent(this, 'config-changed', { config: newConfig as BackgroundGraphEntitiesConfig });
+        newEntities[entityIndex] = entityConf;
+        return { ...config, entities: newEntities };
+      }
+    });
   }
 
   private _handleThresholdDragStart(ev: DragEvent, index: number): void {
@@ -335,48 +324,28 @@ export class BackgroundGraphEntitiesEditor extends LitElement implements Lovelac
     if (index !== this._draggedThresholdIndex) this._dropThresholdIndex = index;
   }
 
-  private _handleThresholdDrop(ev: DragEvent): void {
+  private _handleThresholdDrop(ev: DragEvent, entityIndex: number | null = null): void {
     ev.preventDefault();
     if (this._draggedThresholdIndex === null || this._dropThresholdIndex === null) return;
 
-    const newThresholds = [...this._config.color_thresholds];
-    const [draggedItem] = newThresholds.splice(this._draggedThresholdIndex, 1);
-    newThresholds.splice(this._dropThresholdIndex, 0, draggedItem);
-
-    const newConfig = { ...this._config, color_thresholds: newThresholds };
-    this._config = newConfig;
-    fireEvent(this, 'config-changed', { config: newConfig as BackgroundGraphEntitiesConfig });
-
-    this._draggedThresholdIndex = null;
-    this._dropThresholdIndex = null;
-  }
-
-  private _handleEntityThresholdDragStart(ev: DragEvent, index: number): void {
-    this._draggedThresholdIndex = index;
-    if (ev.dataTransfer) ev.dataTransfer.effectAllowed = 'move';
-  }
-
-  private _handleEntityThresholdDragOver(ev: DragEvent, index: number): void {
-    ev.preventDefault();
-    if (index !== this._draggedThresholdIndex) this._dropThresholdIndex = index;
-  }
-
-  private _handleEntityThresholdDrop(ev: DragEvent, entityIndex: number): void {
-    ev.preventDefault();
-    if (this._draggedThresholdIndex === null || this._dropThresholdIndex === null) return;
-
-    const newEntities = [...this._config.entities];
-    const entityConf = { ...newEntities[entityIndex] };
-    const newThresholds = [...(entityConf.color_thresholds || [])];
-    const [draggedItem] = newThresholds.splice(this._draggedThresholdIndex, 1);
-    newThresholds.splice(this._dropThresholdIndex, 0, draggedItem);
-
-    entityConf.color_thresholds = newThresholds;
-    newEntities[entityIndex] = entityConf;
-
-    const newConfig = { ...this._config, entities: newEntities };
-    this._config = newConfig;
-    fireEvent(this, 'config-changed', { config: newConfig as BackgroundGraphEntitiesConfig });
+    this._updateConfig((config) => {
+      if (entityIndex === null) {
+        if (!config.color_thresholds) return config;
+        const newThresholds = [...config.color_thresholds];
+        const [draggedItem] = newThresholds.splice(this._draggedThresholdIndex!, 1);
+        newThresholds.splice(this._dropThresholdIndex!, 0, draggedItem);
+        return { ...config, color_thresholds: newThresholds };
+      } else {
+        const newEntities = [...config.entities];
+        const entityConf = { ...newEntities[entityIndex] };
+        const newThresholds = [...(entityConf.color_thresholds || [])];
+        const [draggedItem] = newThresholds.splice(this._draggedThresholdIndex!, 1);
+        newThresholds.splice(this._dropThresholdIndex!, 0, draggedItem);
+        entityConf.color_thresholds = newThresholds;
+        newEntities[entityIndex] = entityConf;
+        return { ...config, entities: newEntities };
+      }
+    });
 
     this._draggedThresholdIndex = null;
     this._dropThresholdIndex = null;
@@ -413,9 +382,7 @@ export class BackgroundGraphEntitiesEditor extends LitElement implements Lovelac
     const [draggedItem] = newEntities.splice(this._draggedIndex, 1);
     newEntities.splice(this._dropIndex, 0, draggedItem);
 
-    const newConfig = { ...this._config, entities: newEntities };
-    this._config = newConfig;
-    fireEvent(this, 'config-changed', { config: newConfig as BackgroundGraphEntitiesConfig });
+    this._updateConfig((config) => ({ ...config, entities: newEntities }));
 
     this._handleDragEnd();
   }
@@ -426,44 +393,43 @@ export class BackgroundGraphEntitiesEditor extends LitElement implements Lovelac
   }
 
   private _addEntity(): void {
-    const newEntities = [...this._config.entities, { entity: '' }];
-    const newConfig = { ...this._config, entities: newEntities };
-    this._config = newConfig;
-    fireEvent(this, 'config-changed', { config: newConfig as BackgroundGraphEntitiesConfig });
+    this._updateConfig((config) => ({
+      ...config,
+      entities: [...config.entities, { entity: '' }],
+    }));
   }
 
   private _removeEntity(index: number): void {
-    const newEntities = [...this._config.entities];
-    newEntities.splice(index, 1);
-    const newConfig = { ...this._config, entities: newEntities };
-    this._config = newConfig;
-    fireEvent(this, 'config-changed', { config: newConfig as BackgroundGraphEntitiesConfig });
+    this._updateConfig((config) => {
+      const newEntities = [...config.entities];
+      newEntities.splice(index, 1);
+      return { ...config, entities: newEntities };
+    });
   }
 
   private _overwriteAppearanceChanged(ev: Event): void {
     const target = ev.target as HTMLInputElement;
     const index = Number((target as HTMLElement).dataset.index);
-    const checked = target.checked;
+    if (isNaN(index)) return;
 
-    if (!this._config || isNaN(index)) return;
+    const isChecked = target.checked;
 
-    const newEntities = [...this._config.entities];
-    const newEntityConf = { ...newEntities[index] };
+    this._updateConfig((config) => {
+      const newEntities = [...config.entities];
+      const newEntityConf = { ...newEntities[index] };
 
-    if (checked) {
-      newEntityConf.overwrite_graph_appearance = true;
-    } else {
-      delete newEntityConf.overwrite_graph_appearance;
-      delete newEntityConf.line_color;
-      delete newEntityConf.line_opacity;
-      delete newEntityConf.color_thresholds;
-    }
+      if (isChecked) {
+        newEntityConf.overwrite_graph_appearance = true;
+      } else {
+        delete newEntityConf.overwrite_graph_appearance;
+        delete newEntityConf.line_color;
+        delete newEntityConf.line_opacity;
+        delete newEntityConf.color_thresholds;
+      }
 
-    newEntities[index] = newEntityConf;
-
-    const newConfig = { ...this._config, entities: newEntities };
-    this._config = newConfig;
-    fireEvent(this, 'config-changed', { config: newConfig as BackgroundGraphEntitiesConfig });
+      newEntities[index] = newEntityConf;
+      return { ...config, entities: newEntities };
+    });
     this.requestUpdate();
   }
 
@@ -488,10 +454,7 @@ export class BackgroundGraphEntitiesEditor extends LitElement implements Lovelac
 
     return html`
       <div class="header">
-        <ha-icon-button
-          .path=${'M15.41,16.58L10.83,12L15.41,7.41L14,6L8,12L14,18L15.41,16.58Z'}
-          @click=${this._goBack}
-        ></ha-icon-button>
+        <ha-icon-button @click=${this._goBack}><ha-icon icon="mdi:chevron-left"></ha-icon></ha-icon-button>
         <span class="title">${entityConf.name || entityConf.entity}</span>
       </div>
       <div class="card-config">
@@ -531,13 +494,12 @@ export class BackgroundGraphEntitiesEditor extends LitElement implements Lovelac
             data-picker-id="entity_icon_color_${this._editingIndex}"
             @mousedown=${(e: MouseEvent) => e.stopPropagation()}
           >
-            <rgb-string-color-picker
+            <hex-color-picker
               .color=${finalIconColor}
               data-index=${this._editingIndex}
               data-field="icon_color"
               @color-changed=${this._entityAttributeChanged}
-              alpha
-            ></rgb-string-color-picker>
+            ></hex-color-picker>
           </div>
         </div>
 
@@ -587,7 +549,7 @@ export class BackgroundGraphEntitiesEditor extends LitElement implements Lovelac
         <ha-select
           .label=${localize(this.hass, 'component.bge.editor.color_mode')}
           .value=${colorMode}
-          @selected=${(e: Event) => this._handleEntityColorModeChange(e, index)}
+          @selected=${(e: Event) => this._handleColorModeChange(e, index)}
           @closed=${(ev: Event) => ev.stopPropagation()}
         >
           <mwc-list-item value="single">${localize(this.hass, 'component.bge.editor.color_mode_single')}</mwc-list-item>
@@ -617,13 +579,12 @@ export class BackgroundGraphEntitiesEditor extends LitElement implements Lovelac
                   data-picker-id="entity_line_color_${index}"
                   @mousedown=${(e: MouseEvent) => e.stopPropagation()}
                 >
-                  <rgb-string-color-picker
+                  <hex-color-picker
                     .color=${finalLineColor}
                     data-index=${index}
                     data-field="line_color"
                     @color-changed=${this._entityAttributeChanged}
-                    alpha
-                  ></rgb-string-color-picker>
+                  ></hex-color-picker>
                 </div>
               </div>
             `
@@ -647,17 +608,17 @@ export class BackgroundGraphEntitiesEditor extends LitElement implements Lovelac
                   ? 'drag-over'
                   : ''} ${this._draggedThresholdIndex === index ? 'dragging' : ''}"
                 draggable="true"
-                @dragstart=${(e: DragEvent) => this._handleEntityThresholdDragStart(e, index)}
-                @dragover=${(e: DragEvent) => this._handleEntityThresholdDragOver(e, index)}
+                @dragstart=${(e: DragEvent) => this._handleThresholdDragStart(e, index)}
+                @dragover=${(e: DragEvent) => this._handleThresholdDragOver(e, index)}
                 @dragleave=${() => (this._dropThresholdIndex = null)}
-                @drop=${(e: DragEvent) => this._handleEntityThresholdDrop(e, entityIndex)}
+                @drop=${(e: DragEvent) => this._handleThresholdDrop(e, entityIndex)}
                 @dragend=${() => {
                   this._draggedThresholdIndex = null;
                   this._dropThresholdIndex = null;
                 }}
               >
                 <div class="drag-handle">
-                  <ha-icon .icon=${'mdi:drag-vertical'}></ha-icon>
+                  <ha-icon icon="mdi:drag-vertical"></ha-icon>
                 </div>
                 <div class="threshold-inputs">
                   <ha-textfield
@@ -665,7 +626,7 @@ export class BackgroundGraphEntitiesEditor extends LitElement implements Lovelac
                     type="number"
                     .value=${String(threshold.value)}
                     data-field="value"
-                    @change=${(e: Event) => this._entityThresholdChanged(e, entityIndex, index)}
+                    @change=${(e: Event) => this._thresholdChanged(e, index, entityIndex)}
                   ></ha-textfield>
                   <div
                     class="color-input-wrapper"
@@ -677,7 +638,7 @@ export class BackgroundGraphEntitiesEditor extends LitElement implements Lovelac
                       .label=${localize(this.hass, 'component.bge.editor.color')}
                       .value=${threshold.color}
                       data-field="color"
-                      @change=${(e: Event) => this._entityThresholdChanged(e, entityIndex, index)}
+                      @change=${(e: Event) => this._thresholdChanged(e, index, entityIndex)}
                     ></ha-textfield>
                     <div class="color-preview" style="background-color: ${threshold.color}"></div>
                     <div
@@ -685,25 +646,22 @@ export class BackgroundGraphEntitiesEditor extends LitElement implements Lovelac
                       data-picker-id=${`entity_${entityIndex}_threshold_${index}`}
                       @mousedown=${(e: MouseEvent) => e.stopPropagation()}
                     >
-                      <rgb-string-color-picker
+                      <hex-color-picker
                         .color=${threshold.color}
                         data-field="color"
-                        @color-changed=${(e: CustomEvent) => this._entityThresholdChanged(e, entityIndex, index)}
-                        alpha
-                      ></rgb-string-color-picker>
+                        @color-changed=${(e: CustomEvent) => this._thresholdChanged(e, index, entityIndex)}
+                      ></hex-color-picker>
                     </div>
                   </div>
                 </div>
-                <ha-icon-button
-                  class="remove-icon"
-                  .path=${'M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z'}
-                  @click=${() => this._removeEntityThreshold(entityIndex, index)}
+                <ha-icon-button class="remove-icon" @click=${() => this._removeThreshold(index, entityIndex)}
+                  ><ha-icon icon="mdi:close"></ha-icon
                 ></ha-icon-button>
               </div>
             `,
           )}
         </div>
-        <ha-button @click=${() => this._addEntityThreshold(entityIndex)}>
+        <ha-button @click=${() => this._addThreshold(entityIndex)}>
           ${localize(this.hass, 'component.bge.editor.add_threshold')}
         </ha-button>
       </div>
@@ -812,7 +770,7 @@ export class BackgroundGraphEntitiesEditor extends LitElement implements Lovelac
           <ha-select
             .label=${localize(this.hass, 'component.bge.editor.color_mode')}
             .value=${colorMode}
-            @selected=${this._handleColorModeChange}
+            @selected=${(e: Event) => this._handleColorModeChange(e, null)}
             @closed=${(ev: Event) => ev.stopPropagation()}
           >
             <mwc-list-item value="single"
@@ -846,12 +804,11 @@ export class BackgroundGraphEntitiesEditor extends LitElement implements Lovelac
                   data-picker-id="line_color"
                   @mousedown=${(e: MouseEvent) => e.stopPropagation()}
                 >
-                  <rgb-string-color-picker
+                  <hex-color-picker
                     .color=${this._config.line_color || defaultLineColor}
                     .configValue=${'line_color'}
                     @color-changed=${this._colorPicked}
-                    alpha
-                  ></rgb-string-color-picker>
+                  ></hex-color-picker>
                 </div>
               </div>
             `
@@ -859,7 +816,7 @@ export class BackgroundGraphEntitiesEditor extends LitElement implements Lovelac
               <div>
                 <h3>${localize(this.hass, 'component.bge.editor.color_thresholds')}</h3>
                 <div class="entities-container">
-                  ${this._config.color_thresholds.map(
+                  ${(this._config.color_thresholds || []).map(
                     (threshold, index) => html`
                       <div
                         class="entity-container threshold-container ${this._dropThresholdIndex === index
@@ -869,14 +826,14 @@ export class BackgroundGraphEntitiesEditor extends LitElement implements Lovelac
                         @dragstart=${(e: DragEvent) => this._handleThresholdDragStart(e, index)}
                         @dragover=${(e: DragEvent) => this._handleThresholdDragOver(e, index)}
                         @dragleave=${() => (this._dropThresholdIndex = null)}
-                        @drop=${this._handleThresholdDrop}
+                        @drop=${(e: DragEvent) => this._handleThresholdDrop(e, null)}
                         @dragend=${() => {
                           this._draggedThresholdIndex = null;
                           this._dropThresholdIndex = null;
                         }}
                       >
                         <div class="drag-handle">
-                          <ha-icon .icon=${'mdi:drag-vertical'}></ha-icon>
+                          <ha-icon icon="mdi:drag-vertical"></ha-icon>
                         </div>
                         <div class="threshold-inputs">
                           <ha-textfield
@@ -884,7 +841,7 @@ export class BackgroundGraphEntitiesEditor extends LitElement implements Lovelac
                             type="number"
                             .value=${String(threshold.value)}
                             data-field="value"
-                            @change=${(e: Event) => this._thresholdChanged(e, index)}
+                            @change=${(e: Event) => this._thresholdChanged(e, index, null)}
                           ></ha-textfield>
                           <div
                             class="color-input-wrapper"
@@ -896,7 +853,7 @@ export class BackgroundGraphEntitiesEditor extends LitElement implements Lovelac
                               .value=${threshold.color}
                               data-field="color"
                               data-index=${String(index)}
-                              @change=${(e: Event) => this._thresholdChanged(e, index)}
+                              @change=${(e: Event) => this._thresholdChanged(e, index, null)}
                             ></ha-textfield>
                             <div class="color-preview" style="background-color: ${threshold.color}"></div>
                             <div
@@ -904,25 +861,22 @@ export class BackgroundGraphEntitiesEditor extends LitElement implements Lovelac
                               data-picker-id=${`threshold_${index}`}
                               @mousedown=${(e: MouseEvent) => e.stopPropagation()}
                             >
-                              <rgb-string-color-picker
+                              <hex-color-picker
                                 .color=${threshold.color}
                                 data-field="color"
-                                @color-changed=${(e: CustomEvent) => this._thresholdChanged(e, index)}
-                                alpha
-                              ></rgb-string-color-picker>
+                                @color-changed=${(e: CustomEvent) => this._thresholdChanged(e, index, null)}
+                              ></hex-color-picker>
                             </div>
                           </div>
                         </div>
-                        <ha-icon-button
-                          class="remove-icon"
-                          .path=${'M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z'}
-                          @click=${() => this._removeThreshold(index)}
+                        <ha-icon-button class="remove-icon" @click=${() => this._removeThreshold(index, null)}
+                          ><ha-icon icon="mdi:close"></ha-icon
                         ></ha-icon-button>
                       </div>
                     `,
                   )}
                 </div>
-                <ha-button @click=${this._addThreshold}>
+                <ha-button @click=${() => this._addThreshold(null)}>
                   ${localize(this.hass, 'component.bge.editor.add_threshold')}
                 </ha-button>
               </div>
@@ -965,7 +919,7 @@ export class BackgroundGraphEntitiesEditor extends LitElement implements Lovelac
                   draggable="true"
                   @dragstart=${(e: DragEvent) => this._handleDragStart(e, index)}
                 >
-                  <ha-icon .icon=${'mdi:drag-vertical'}></ha-icon>
+                  <ha-icon icon="mdi:drag-vertical"></ha-icon>
                 </div>
                 <div class="entity-content">
                   <div class="entity-main">
@@ -980,15 +934,15 @@ export class BackgroundGraphEntitiesEditor extends LitElement implements Lovelac
                     ></ha-entity-picker>
                     <ha-icon-button
                       class="edit-icon"
-                      .path=${'M20.71,7.04C21.1,6.65 21.1,6 20.71,5.63L18.37,3.29C18,2.9 17.35,2.9 16.96,3.29L15.12,5.12L18.87,8.87M3,17.25V21H6.75L17.81,9.93L14.06,6.18L3,17.25Z'}
                       @mousedown=${(e: MouseEvent) => e.stopPropagation()}
                       @click=${() => this._editEntity(index)}
+                      ><ha-icon icon="mdi:pencil"></ha-icon
                     ></ha-icon-button>
                     <ha-icon-button
                       class="remove-icon"
-                      .path=${'M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z'}
                       @mousedown=${(e: MouseEvent) => e.stopPropagation()}
                       @click=${() => this._removeEntity(index)}
+                      ><ha-icon icon="mdi:close"></ha-icon
                     ></ha-icon-button>
                   </div>
                 </div>
