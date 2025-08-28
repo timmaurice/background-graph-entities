@@ -94,6 +94,23 @@ export class BackgroundGraphEntitiesEditor extends LitElement implements Lovelac
     this._activeColorPicker = null;
   };
 
+  private _updateEntityOrGlobalConfig(
+    entityIndex: number | null,
+    updater: (
+      conf: Partial<EditorInternalConfig> | Partial<EntityConfig>,
+    ) => Partial<EditorInternalConfig> | Partial<EntityConfig>,
+  ): void {
+    this._updateConfig((config) => {
+      if (entityIndex === null) {
+        return updater(config) as EditorInternalConfig;
+      } else {
+        const newEntities = [...config.entities];
+        newEntities[entityIndex] = updater(newEntities[entityIndex]) as EntityConfig;
+        return { ...config, entities: newEntities };
+      }
+    });
+  }
+
   private _updateConfig(updater: (config: EditorInternalConfig) => EditorInternalConfig): void {
     if (!this._config) return;
     const newConfig = updater(this._config);
@@ -124,40 +141,22 @@ export class BackgroundGraphEntitiesEditor extends LitElement implements Lovelac
   private _handleColorModeChange(ev: Event, entityIndex: number | null = null): void {
     const newMode = (ev.target as HTMLSelectElement).value;
 
-    this._updateConfig((config) => {
-      if (entityIndex === null) {
-        const oldMode = (config.color_thresholds?.length ?? 0) > 0 ? 'threshold' : 'single';
-        if (newMode === oldMode) return config;
+    this._updateEntityOrGlobalConfig(entityIndex, (conf) => {
+      const oldMode = (conf.color_thresholds?.length ?? 0) > 0 ? 'threshold' : 'single';
+      if (newMode === oldMode) return conf;
 
-        const newConfig = { ...config };
-        if (newMode === 'threshold') {
-          if (!newConfig.color_thresholds || newConfig.color_thresholds.length === 0) {
-            newConfig.color_thresholds = [{ value: 0, color: '#000000' }];
-          }
-        } else {
-          delete newConfig.color_thresholds;
+      const newConf = { ...conf };
+      if (newMode === 'threshold') {
+        if (entityIndex !== null) {
+          delete (newConf as Partial<EntityConfig>).line_color;
         }
-        return newConfig;
+        if (!newConf.color_thresholds || newConf.color_thresholds.length === 0) {
+          newConf.color_thresholds = [{ value: 0, color: '#000000' }];
+        }
       } else {
-        const entityConf = config.entities[entityIndex];
-        const oldMode = (entityConf.color_thresholds?.length ?? 0) > 0 ? 'threshold' : 'single';
-        if (newMode === oldMode) return config;
-
-        const newEntities = [...config.entities];
-        const newEntityConf = { ...newEntities[entityIndex] };
-
-        if (newMode === 'threshold') {
-          delete newEntityConf.line_color;
-          if (!newEntityConf.color_thresholds || newEntityConf.color_thresholds.length === 0) {
-            newEntityConf.color_thresholds = [{ value: 0, color: '#000000' }];
-          }
-        } else {
-          delete newEntityConf.color_thresholds;
-        }
-
-        newEntities[entityIndex] = newEntityConf;
-        return { ...config, entities: newEntities };
+        delete newConf.color_thresholds;
       }
+      return newConf;
     });
   }
 
@@ -239,78 +238,41 @@ export class BackgroundGraphEntitiesEditor extends LitElement implements Lovelac
   }
 
   private _thresholdChanged(ev: Event, thresholdIndex: number, entityIndex: number | null = null): void {
-    if (!this._config) return;
-
     const target = ev.target as ThresholdEventTarget;
     const field = target.dataset.field as keyof ColorThreshold;
     const isColorPicker = target.tagName.toLowerCase().includes('color-picker');
     const value = isColorPicker ? (ev as CustomEvent).detail.value : target.value;
 
-    this._updateConfig((config) => {
-      const newThresholdValue = field === 'value' ? Number(value) : value;
+    const newThresholdValue = field === 'value' ? Number(value) : value;
 
-      if (entityIndex === null) {
-        if (!config.color_thresholds) return config;
-        const newThresholds = [...config.color_thresholds];
-        newThresholds[thresholdIndex] = {
-          ...newThresholds[thresholdIndex],
-          [field]: newThresholdValue,
-        };
-        return { ...config, color_thresholds: newThresholds };
-      } else {
-        const newEntities = [...config.entities];
-        const entityConf = { ...newEntities[entityIndex] };
-        const newThresholds = [...(entityConf.color_thresholds || [])];
-        newThresholds[thresholdIndex] = {
-          ...newThresholds[thresholdIndex],
-          [field]: newThresholdValue,
-        };
-        entityConf.color_thresholds = newThresholds;
-        newEntities[entityIndex] = entityConf;
-        return { ...config, entities: newEntities };
-      }
+    this._updateEntityOrGlobalConfig(entityIndex, (conf) => {
+      if (!conf.color_thresholds) return conf;
+      const newThresholds = [...conf.color_thresholds];
+      newThresholds[thresholdIndex] = { ...newThresholds[thresholdIndex], [field]: newThresholdValue };
+      return { ...conf, color_thresholds: newThresholds };
     });
   }
 
   private _addThreshold(entityIndex: number | null = null): void {
-    this._updateConfig((config) => {
-      const newThreshold = { value: 0, color: '#000000' };
-      if (entityIndex === null) {
-        const newThresholds = [...(config.color_thresholds || []), newThreshold];
-        return { ...config, color_thresholds: newThresholds };
-      } else {
-        const newEntities = [...config.entities];
-        const entityConf = { ...newEntities[entityIndex] };
-        const newThresholds = [...(entityConf.color_thresholds || []), newThreshold];
-        entityConf.color_thresholds = newThresholds;
-        newEntities[entityIndex] = entityConf;
-        return { ...config, entities: newEntities };
-      }
+    const newThreshold = { value: 0, color: '#000000' };
+    this._updateEntityOrGlobalConfig(entityIndex, (conf) => {
+      const newThresholds = [...(conf.color_thresholds || []), newThreshold];
+      return { ...conf, color_thresholds: newThresholds };
     });
   }
 
   private _removeThreshold(thresholdIndex: number, entityIndex: number | null = null): void {
-    this._updateConfig((config) => {
-      if (entityIndex === null) {
-        if (!config.color_thresholds) return config;
-        const newThresholds = [...config.color_thresholds];
-        newThresholds.splice(thresholdIndex, 1);
-        return { ...config, color_thresholds: newThresholds };
-      } else {
-        const newEntities = [...config.entities];
-        const entityConf = { ...newEntities[entityIndex] };
-        const newThresholds = [...(entityConf.color_thresholds || [])];
-        newThresholds.splice(thresholdIndex, 1);
+    this._updateEntityOrGlobalConfig(entityIndex, (conf) => {
+      if (!conf.color_thresholds) return conf;
+      const newThresholds = [...conf.color_thresholds];
+      newThresholds.splice(thresholdIndex, 1);
 
-        if (newThresholds.length === 0) {
-          delete entityConf.color_thresholds;
-        } else {
-          entityConf.color_thresholds = newThresholds;
-        }
-
-        newEntities[entityIndex] = entityConf;
-        return { ...config, entities: newEntities };
+      if (newThresholds.length === 0) {
+        const newConf = { ...conf };
+        delete newConf.color_thresholds;
+        return newConf;
       }
+      return { ...conf, color_thresholds: newThresholds };
     });
   }
 
@@ -328,24 +290,12 @@ export class BackgroundGraphEntitiesEditor extends LitElement implements Lovelac
     ev.preventDefault();
     if (this._draggedThresholdIndex === null || this._dropThresholdIndex === null) return;
 
-    const moveItem = (arr: ColorThreshold[]): ColorThreshold[] => {
-      const newArr = [...arr];
-      const [draggedItem] = newArr.splice(this._draggedThresholdIndex!, 1);
-      newArr.splice(this._dropThresholdIndex!, 0, draggedItem);
-      return newArr;
-    };
-
-    this._updateConfig((config) => {
-      if (entityIndex === null) {
-        if (!config.color_thresholds) return config;
-        return { ...config, color_thresholds: moveItem(config.color_thresholds) };
-      } else {
-        const newEntities = [...config.entities];
-        const entityConf = { ...newEntities[entityIndex] };
-        entityConf.color_thresholds = moveItem(entityConf.color_thresholds || []);
-        newEntities[entityIndex] = entityConf;
-        return { ...config, entities: newEntities };
-      }
+    this._updateEntityOrGlobalConfig(entityIndex, (conf) => {
+      if (!conf.color_thresholds) return conf;
+      const newThresholds = [...conf.color_thresholds];
+      const [draggedItem] = newThresholds.splice(this._draggedThresholdIndex!, 1);
+      newThresholds.splice(this._dropThresholdIndex!, 0, draggedItem);
+      return { ...conf, color_thresholds: newThresholds };
     });
 
     this._draggedThresholdIndex = null;
