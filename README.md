@@ -4,7 +4,7 @@
 ![GitHub release (latest by date)](https://img.shields.io/github/v/release/timmaurice/lovelace-background-graph-entities?style=flat-square)
 [![GH-downloads](https://img.shields.io/github/downloads/timmaurice/lovelace-background-graph-entities/total?style=flat-square)](https://github.com/timmaurice/lovelace-background-graph-entities/releases)
 [![GH-last-commit](https://img.shields.io/github/last-commit/timmaurice/lovelace-background-graph-entities.svg?style=flat-square)](https://github.com/timmaurice/lovelace-background-graph-entities/commits/master)
-[![GH-code-size](https://img.shields.io/github/languages/code-size/timmaurice/lovelace-background-graph-entities.svg?color=red&style=flat-square)](https://github.com/timmaurice/lovelace-background-graph-entities)
+[![GH-code-size](https://img.shields.io/github/languages/code-size/timmaurice/lovelace-background-graph-entities.svg?style=flat-square)](https://github.com/timmaurice/lovelace-background-graph-entities)
 ![GitHub](https://img.shields.io/github/license/timmaurice/lovelace-background-graph-entities?style=flat-square)
 
 ## Overview
@@ -183,11 +183,11 @@ To contribute to the development, you'll need to set up a build environment.
     npm install
     ```
 
-3.  **Start the development server:**
-    This command will watch for changes in the `src` directory and automatically rebuild the card.
+3.  **Build the card:**
+    This command will compile the card and place the output in the `dist/` directory.
 
     ```bash
-    npm run watch
+    npm run build
     ```
 
 4.  In your Home Assistant instance, you will need to configure Lovelace to use the local development version of the card from `dist/background-graph-entities.js`.
@@ -195,3 +195,5 @@ To contribute to the development, you'll need to set up a build environment.
 ---
 
 For further assistance or to report issues, please visit the [GitHub repository](https://github.com/timmaurice/lovelace-background-graph-entities).
+
+![Star History Chart](https://api.star-history.com/svg?repos=timmaurice/lovelace-background-graph-entities&type=Date)

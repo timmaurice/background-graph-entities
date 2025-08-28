@@ -15,13 +15,10 @@ interface TranslationObject {
 const typedTranslations: { [key: string]: TranslationObject } = translations;
 
 function _getTranslation(language: string, keys: string[]): string | undefined {
-  let translation: string | TranslationObject | undefined = typedTranslations[language];
-  for (const key of keys) {
-    if (typeof translation !== 'object' || translation === null) {
-      return undefined;
-    }
-    translation = translation[key];
-  }
+  const translation = keys.reduce(
+    (obj, key) => (obj && typeof obj === 'object' ? obj[key] : undefined),
+    typedTranslations[language] as string | TranslationObject | undefined,
+  );
   return typeof translation === 'string' ? translation : undefined;
 }
 

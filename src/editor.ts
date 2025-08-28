@@ -328,20 +328,21 @@ export class BackgroundGraphEntitiesEditor extends LitElement implements Lovelac
     ev.preventDefault();
     if (this._draggedThresholdIndex === null || this._dropThresholdIndex === null) return;
 
+    const moveItem = (arr: ColorThreshold[]): ColorThreshold[] => {
+      const newArr = [...arr];
+      const [draggedItem] = newArr.splice(this._draggedThresholdIndex!, 1);
+      newArr.splice(this._dropThresholdIndex!, 0, draggedItem);
+      return newArr;
+    };
+
     this._updateConfig((config) => {
       if (entityIndex === null) {
         if (!config.color_thresholds) return config;
-        const newThresholds = [...config.color_thresholds];
-        const [draggedItem] = newThresholds.splice(this._draggedThresholdIndex!, 1);
-        newThresholds.splice(this._dropThresholdIndex!, 0, draggedItem);
-        return { ...config, color_thresholds: newThresholds };
+        return { ...config, color_thresholds: moveItem(config.color_thresholds) };
       } else {
         const newEntities = [...config.entities];
         const entityConf = { ...newEntities[entityIndex] };
-        const newThresholds = [...(entityConf.color_thresholds || [])];
-        const [draggedItem] = newThresholds.splice(this._draggedThresholdIndex!, 1);
-        newThresholds.splice(this._dropThresholdIndex!, 0, draggedItem);
-        entityConf.color_thresholds = newThresholds;
+        entityConf.color_thresholds = moveItem(entityConf.color_thresholds || []);
         newEntities[entityIndex] = entityConf;
         return { ...config, entities: newEntities };
       }
